@@ -20,6 +20,7 @@
                     <thead>
                         <tr>
                             <th>No</th>
+                            <th>Gambar</th>
                             <th>Produk</th>
                             <th>Harga</th>
                             <th>Qty</th>
@@ -34,9 +35,23 @@
                                 $subtotal = (float) ($item->product?->price ?? 0) * (int) $item->quantity;
                                 $grandTotal += $subtotal;
                                 $stockLimit = max(1, (int) ($item->product?->stock ?? 1));
+                                $rawImage = trim((string) ($item->product?->image ?? ''));
+                                $imageUrl =
+                                    $rawImage === ''
+                                        ? 'https://placehold.co/200x200?text=No+Image'
+                                        : (str_starts_with($rawImage, 'http://') ||
+                                        str_starts_with($rawImage, 'https://')
+                                            ? $rawImage
+                                            : asset($rawImage));
                             @endphp
                             <tr>
                                 <td>{{ $loop->iteration }}</td>
+                                <td>
+                                    <img src="{{ $imageUrl }}" alt="{{ $item->product?->name ?? 'Produk' }}"
+                                        style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px;"
+                                        loading="lazy"
+                                        onerror="this.onerror=null;this.src='https://placehold.co/200x200?text=No+Image';">
+                                </td>
                                 <td>{{ $item->product?->name ?? 'Produk tidak tersedia' }}</td>
                                 <td>Rp {{ number_format((float) ($item->product?->price ?? 0), 0, ',', '.') }}</td>
                                 <td>
@@ -70,7 +85,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">Keranjang Anda masih kosong.</td>
+                                <td colspan="7" class="text-center py-4 text-muted">Keranjang Anda masih kosong.</td>
                             </tr>
                         @endforelse
                     </tbody>

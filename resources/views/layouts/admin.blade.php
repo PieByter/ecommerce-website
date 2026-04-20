@@ -51,7 +51,7 @@
             <li class="nav-item">
                 <a href="{{ route('admin.categories.index') }}"
                     class="nav-link {{ request()->routeIs('admin.categories.*') ? 'active' : '' }}">
-                    <i class="bi bi-tag"></i> Kategori
+                    <i class="bi bi-tag"></i> Category
                 </a>
             </li>
             <li class="nav-item">
@@ -63,7 +63,7 @@
             <li class="nav-item">
                 <a href="{{ route('admin.products.index') }}"
                     class="nav-link {{ request()->routeIs('admin.products.*') ? 'active' : '' }}">
-                    <i class="bi bi-box-seam"></i> Produk
+                    <i class="bi bi-box-seam"></i> Product
                 </a>
             </li>
             <li class="nav-item">
@@ -80,7 +80,7 @@
             <li class="nav-item">
                 <a href="{{ route('admin.orders.index') }}"
                     class="nav-link {{ request()->routeIs('admin.orders.*') ? 'active' : '' }}">
-                    <i class="bi bi-receipt"></i> Pesanan
+                    <i class="bi bi-receipt"></i> Sale Order
                 </a>
             </li>
             <li class="nav-item">
@@ -97,7 +97,7 @@
             <li class="nav-item">
                 <a href="{{ route('admin.users.index') }}"
                     class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
-                    <i class="bi bi-people"></i> Data Admin
+                    <i class="bi bi-people"></i> Admin Data
                 </a>
             </li>
         </ul>

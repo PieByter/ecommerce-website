@@ -88,7 +88,7 @@ class ProductController extends Controller
             'weight' => $validated['weight'] ?? 0,
             'image' => $imagePath,
             'is_active' => $request->boolean('is_active', true),
-            'slug' => Str::slug($validated['name']).'-'.Str::random(5),
+            'slug' => Str::slug($validated['name']) . '-' . Str::random(5),
         ];
 
         Product::query()->create($productPayload);
@@ -158,7 +158,7 @@ class ProductController extends Controller
             'weight' => $validated['weight'] ?? 0,
             'image' => $imagePath,
             'is_active' => $request->boolean('is_active', true),
-            'slug' => Str::slug($validated['name']).'-'.$product->id,
+            'slug' => Str::slug($validated['name']) . '-' . $product->id,
         ];
 
         $product->update($productPayload);
@@ -184,7 +184,7 @@ class ProductController extends Controller
         }
 
         // Return file URL path that matches public/storage/images
-        return 'storage/'.$path;
+        return 'storage/' . $path;
     }
 
     private function resolveUploadErrorMessage(UploadedFile $file): string
@@ -238,7 +238,7 @@ class ProductController extends Controller
             return;
         }
 
-        $fullPath = public_path($baseDirectory.'/'.$relativePath);
+        $fullPath = public_path($baseDirectory . '/' . $relativePath);
 
         if (is_file($fullPath)) {
             @unlink($fullPath);

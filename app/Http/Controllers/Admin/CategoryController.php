@@ -32,7 +32,7 @@ class CategoryController extends Controller
 
         Category::query()->create([
             'name' => $validated['name'],
-            'slug' => $validated['slug'] ?: (Str::slug($validated['name']).'-'.Str::random(4)),
+            'slug' => $validated['slug'] ?: (Str::slug($validated['name']) . '-' . Str::random(4)),
         ]);
 
         return redirect()->route('admin.categories.index')->with('success', 'Kategori berhasil ditambahkan.');
@@ -52,7 +52,7 @@ class CategoryController extends Controller
 
         $category->update([
             'name' => $validated['name'],
-            'slug' => $validated['slug'] ?: (Str::slug($validated['name']).'-'.$category->id),
+            'slug' => $validated['slug'] ?: (Str::slug($validated['name']) . '-' . $category->id),
         ]);
 
         return redirect()->route('admin.categories.index')->with('success', 'Kategori berhasil diperbarui.');

@@ -4,9 +4,61 @@
 
 @section('content')
     <div class="container">
+        @php
+            $activeCategoryId = (int) ($selectedCategoryId ?? 0);
+            $currentKeyword = request()->string('q')->toString();
+        @endphp
+
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h1 class="h5 fw-semibold mb-0">Semua Produk</h1>
             <span class="text-muted small">{{ $products->total() }} item</span>
+        </div>
+
+        @php
+            $quickCategories = $categories->take(9);
+            $otherCategories = $categories->skip(9);
+            $selectedOutsideQuickCategory = $otherCategories->firstWhere('id', $activeCategoryId);
+        @endphp
+
+        <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
+            <span class="small text-muted">Filter kategori:</span>
+            <a href="{{ route('products.index', array_filter(['q' => $currentKeyword], fn($value) => $value !== '')) }}"
+                class="badge rounded-pill text-decoration-none px-3 py-2 {{ $activeCategoryId === 0 ? 'text-bg-danger' : 'text-bg-light border text-dark' }}">
+                Semua
+            </a>
+            @foreach ($quickCategories as $category)
+                <a href="{{ route('products.index', array_filter(['q' => $currentKeyword, 'category' => $category->id], fn($value) => $value !== '')) }}"
+                    class="badge rounded-pill text-decoration-none px-3 py-2 {{ $activeCategoryId === (int) $category->id ? 'text-bg-danger' : 'text-bg-light border text-dark' }}">
+                    {{ $category->name }}
+                </a>
+            @endforeach
+
+            @if ($otherCategories->isNotEmpty())
+                <div class="dropdown">
+                    <button class="badge rounded-pill text-bg-light border text-dark px-3 py-2 dropdown-toggle"
+                        style="cursor: pointer;" type="button"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                        +{{ $otherCategories->count() }} lainnya
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end shadow-sm p-3 border-0"
+                        style="width: min(500px, 92vw); max-height: min(500px, 60vh); overflow: auto;">
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach ($otherCategories as $category)
+                                <a href="{{ route('products.index', array_filter(['q' => $currentKeyword, 'category' => $category->id], fn($value) => $value !== '')) }}"
+                                    class="badge rounded-pill text-decoration-none px-3 py-2 {{ $activeCategoryId === (int) $category->id ? 'text-bg-danger' : 'text-bg-light border text-dark' }}">
+                                    {{ $category->name }}
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            @if ($selectedOutsideQuickCategory)
+                <span class="badge rounded-pill text-bg-danger px-3 py-2">
+                    {{ $selectedOutsideQuickCategory->name }}
+                </span>
+            @endif
         </div>
 
         <div class="row g-3">
@@ -24,6 +76,7 @@
                         $ratingStars = max(0, min(5, (int) round($averageRating)));
                         $cartQuantity = (int) ($cartQuantities[$product->id] ?? 0);
                         $isOutOfStock = (int) $product->stock <= 0;
+                        $quantityMax = max($cartQuantity, (int) $product->stock);
                     @endphp
                     <div class="card h-100 border-0 shadow-sm">
                         <a href="{{ route('products.show', $product->slug) }}" class="text-decoration-none text-reset">
@@ -61,13 +114,22 @@
                             </div>
                         </div>
                         <div class="card-footer bg-white border-0 pt-0">
-                            <div class="d-flex align-items-center gap-2">
+                            <div class="d-flex align-items-center justify-content-center gap-2">
                                 <form method="POST" action="{{ route('cart.adjust', $product) }}" class="m-0">
                                     @csrf
                                     <input type="hidden" name="action" value="decrement">
                                     <button type="submit" class="btn btn-sm btn-outline-secondary">-</button>
                                 </form>
-                                <div class="small text-muted flex-grow-1 text-center">Di cart: {{ $cartQuantity }}</div>
+
+                                <form method="POST" action="{{ route('cart.adjust', $product) }}" class="m-0">
+                                    @csrf
+                                    <input type="hidden" name="action" value="set">
+                                    <input type="number" name="quantity" class="form-control form-control-sm text-center"
+                                        value="{{ $cartQuantity }}" min="0" max="{{ $quantityMax }}"
+                                        style="width: 88px;" aria-label="Jumlah item di keranjang"
+                                        onchange="this.form.submit()">
+                                </form>
+
                                 <form method="POST" action="{{ route('cart.adjust', $product) }}" class="m-0">
                                     @csrf
                                     <input type="hidden" name="action" value="increment">

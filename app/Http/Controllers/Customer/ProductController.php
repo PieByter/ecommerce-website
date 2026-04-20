@@ -13,12 +13,19 @@ class ProductController extends Controller
 {
     public function index(Request $request): View
     {
+        $selectedCategoryId = $request->filled('category')
+            ? (int) $request->input('category')
+            : null;
+
         $products = Product::query()
             ->with('category')
             ->withAvg('reviews as avg_rating', 'rating')
             ->where('is_active', true)
             ->when($request->filled('q'), function ($query) use ($request): void {
-                $query->where('name', 'like', '%'.$request->string('q').'%');
+                $query->where('name', 'like', '%' . $request->string('q') . '%');
+            })
+            ->when($selectedCategoryId, function ($query) use ($selectedCategoryId): void {
+                $query->where('category_id', $selectedCategoryId);
             })
             ->latest()
             ->paginate(10)
@@ -36,7 +43,7 @@ class ProductController extends Controller
                 ->all();
         }
 
-        return view('customer.products.index', compact('products', 'categories', 'cartQuantities'));
+        return view('customer.products.index', compact('products', 'categories', 'cartQuantities', 'selectedCategoryId'));
     }
 
     public function show(Product $product): View

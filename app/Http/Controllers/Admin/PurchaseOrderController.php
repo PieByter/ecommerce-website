@@ -58,7 +58,7 @@ class PurchaseOrderController extends Controller
 
         $supplierId = (int) $validated['supplier_id'];
         $requestedItems = collect($validated['items'])
-            ->filter(fn (array $item): bool => (int) ($item['quantity'] ?? 0) > 0)
+            ->filter(fn(array $item): bool => (int) ($item['quantity'] ?? 0) > 0)
             ->values();
 
         if ($requestedItems->isEmpty()) {
@@ -67,7 +67,7 @@ class PurchaseOrderController extends Controller
             ]);
         }
 
-        $productIds = $requestedItems->pluck('product_id')->map(fn ($id): int => (int) $id)->unique()->values();
+        $productIds = $requestedItems->pluck('product_id')->map(fn($id): int => (int) $id)->unique()->values();
         $products = Product::query()
             ->whereIn('id', $productIds->all())
             ->get()
@@ -210,10 +210,10 @@ class PurchaseOrderController extends Controller
     private function generatePoNumber(): string
     {
         $dateCode = now()->format('Ymd');
-        $prefix = 'PO-'.$dateCode.'-';
+        $prefix = 'PO-' . $dateCode . '-';
 
         $lastPoToday = PurchaseOrder::query()
-            ->where('po_number', 'like', $prefix.'%')
+            ->where('po_number', 'like', $prefix . '%')
             ->latest('id')
             ->value('po_number');
 
@@ -224,6 +224,6 @@ class PurchaseOrderController extends Controller
             $nextSequence = $lastSequence + 1;
         }
 
-        return $prefix.str_pad((string) $nextSequence, 4, '0', STR_PAD_LEFT);
+        return $prefix . str_pad((string) $nextSequence, 4, '0', STR_PAD_LEFT);
     }
 }
