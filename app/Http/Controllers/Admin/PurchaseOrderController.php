@@ -6,26 +6,21 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
+use App\Services\PurchaseOrderService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 class PurchaseOrderController extends Controller
 {
+    public function __construct(private readonly PurchaseOrderService $purchaseOrderService) {}
+
     public function index(Request $request): View
     {
-        $purchaseOrders = PurchaseOrder::query()
-            ->with('supplier')
-            ->withCount('items')
-            ->when($request->filled('status'), function ($query) use ($request): void {
-                $query->where('status', $request->string('status'));
-            })
-            ->latest()
-            ->paginate(10)
-            ->withQueryString();
+        $statusFilter = $request->filled('status') ? $request->string('status')->toString() : null;
+        $purchaseOrders = $this->purchaseOrderService->getPurchaseOrdersPaginated($statusFilter);
 
         return view('admin.purchase-orders.index', compact('purchaseOrders'));
     }
@@ -56,67 +51,11 @@ class PurchaseOrderController extends Controller
             'items.*.unit_cost' => ['required', 'numeric', 'min:0'],
         ]);
 
-        $supplierId = (int) $validated['supplier_id'];
-        $requestedItems = collect($validated['items'])
-            ->filter(fn(array $item): bool => (int) ($item['quantity'] ?? 0) > 0)
-            ->values();
-
-        if ($requestedItems->isEmpty()) {
-            return back()->withInput()->withErrors([
-                'items' => 'Minimal harus ada 1 item produk untuk membuat purchase order.',
-            ]);
+        try {
+            $purchaseOrder = $this->purchaseOrderService->createPurchaseOrder($validated);
+        } catch (ValidationException $e) {
+            return back()->withInput()->withErrors($e->errors());
         }
-
-        $productIds = $requestedItems->pluck('product_id')->map(fn($id): int => (int) $id)->unique()->values();
-        $products = Product::query()
-            ->whereIn('id', $productIds->all())
-            ->get()
-            ->keyBy('id');
-
-        foreach ($productIds as $productId) {
-            $product = $products->get($productId);
-
-            if (! $product || (int) $product->supplier_id !== $supplierId) {
-                throw ValidationException::withMessages([
-                    'items' => 'Semua produk PO harus berasal dari supplier yang dipilih.',
-                ]);
-            }
-        }
-
-        $purchaseOrder = DB::transaction(function () use ($validated, $products, $requestedItems, $supplierId): PurchaseOrder {
-            $po = PurchaseOrder::query()->create([
-                'supplier_id' => $supplierId,
-                'po_number' => $this->generatePoNumber(),
-                'status' => $validated['status'],
-                'order_date' => $validated['order_date'],
-                'expected_date' => $validated['expected_date'] ?? null,
-                'notes' => $validated['notes'] ?? null,
-                'total_cost' => 0,
-            ]);
-
-            $totalCost = 0;
-
-            foreach ($requestedItems as $item) {
-                $product = $products->get((int) $item['product_id']);
-                $quantity = (int) $item['quantity'];
-                $unitCost = (float) $item['unit_cost'];
-                $lineTotal = $quantity * $unitCost;
-
-                $po->items()->create([
-                    'product_id' => $product->id,
-                    'product_name' => $product->name,
-                    'quantity' => $quantity,
-                    'unit_cost' => $unitCost,
-                    'line_total' => $lineTotal,
-                ]);
-
-                $totalCost += $lineTotal;
-            }
-
-            $po->update(['total_cost' => $totalCost]);
-
-            return $po;
-        });
 
         return redirect()
             ->route('admin.purchase-orders.show', $purchaseOrder)
@@ -143,28 +82,22 @@ class PurchaseOrderController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        $nextStatus = $validated['status'];
-
-        if ($purchaseOrder->status === 'received' && $nextStatus !== 'received') {
-            return back()->with('error', 'Status PO yang sudah received tidak dapat diubah.');
+        try {
+            $this->purchaseOrderService->updatePurchaseOrderStatus($purchaseOrder, $validated);
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
         }
-
-        if ($purchaseOrder->status !== 'received' && $nextStatus === 'received') {
-            return back()->with('error', 'Gunakan tombol Terima Barang agar stok otomatis bertambah.');
-        }
-
-        $purchaseOrder->update($validated);
 
         return back()->with('success', 'Purchase order berhasil diperbarui.');
     }
 
     public function destroy(PurchaseOrder $purchaseOrder): RedirectResponse
     {
-        if ($purchaseOrder->status === 'received') {
-            return back()->with('error', 'PO yang sudah diterima tidak dapat dihapus.');
+        try {
+            $this->purchaseOrderService->deletePurchaseOrder($purchaseOrder);
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
         }
-
-        $purchaseOrder->delete();
 
         return redirect()->route('admin.purchase-orders.index')->with('success', 'Purchase order berhasil dihapus.');
     }
@@ -172,58 +105,11 @@ class PurchaseOrderController extends Controller
     public function receive(PurchaseOrder $purchaseOrder): RedirectResponse
     {
         try {
-            DB::transaction(function () use ($purchaseOrder): void {
-                $lockedPo = PurchaseOrder::query()
-                    ->whereKey($purchaseOrder->id)
-                    ->lockForUpdate()
-                    ->firstOrFail();
-
-                if ($lockedPo->status === 'received') {
-                    throw new RuntimeException('PO ini sudah pernah diterima sebelumnya.');
-                }
-
-                if ($lockedPo->status === 'cancelled') {
-                    throw new RuntimeException('PO berstatus cancelled tidak dapat diterima.');
-                }
-
-                $lockedPo->load('items');
-
-                foreach ($lockedPo->items as $item) {
-                    Product::query()
-                        ->whereKey($item->product_id)
-                        ->lockForUpdate()
-                        ->increment('stock', (int) $item->quantity);
-                }
-
-                $lockedPo->update([
-                    'status' => 'received',
-                    'received_at' => now(),
-                ]);
-            });
+            $this->purchaseOrderService->receivePurchaseOrder($purchaseOrder);
         } catch (RuntimeException $exception) {
             return back()->with('error', $exception->getMessage());
         }
 
         return back()->with('success', 'PO diterima dan stok produk berhasil ditambahkan.');
-    }
-
-    private function generatePoNumber(): string
-    {
-        $dateCode = now()->format('Ymd');
-        $prefix = 'PO-' . $dateCode . '-';
-
-        $lastPoToday = PurchaseOrder::query()
-            ->where('po_number', 'like', $prefix . '%')
-            ->latest('id')
-            ->value('po_number');
-
-        $nextSequence = 1;
-
-        if (is_string($lastPoToday) && str_starts_with($lastPoToday, $prefix)) {
-            $lastSequence = (int) substr($lastPoToday, -4);
-            $nextSequence = $lastSequence + 1;
-        }
-
-        return $prefix . str_pad((string) $nextSequence, 4, '0', STR_PAD_LEFT);
     }
 }

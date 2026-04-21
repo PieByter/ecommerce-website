@@ -4,22 +4,20 @@ namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
-use App\Models\ProductReview;
+use App\Services\ReviewService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class ReviewController extends Controller
 {
+    public function __construct(private readonly ReviewService $reviewService) {}
+
     public function index(Request $request): View
     {
         $user = $request->user();
 
-        $reviews = ProductReview::query()
-            ->with('product')
-            ->where('user_id', $user->id)
-            ->latest()
-            ->paginate(12);
+        $reviews = $this->reviewService->getUserReviews($user);
 
         return view('customer.reviews.index', compact('reviews'));
     }
@@ -34,34 +32,18 @@ class ReviewController extends Controller
 
         abort_if(! $product->is_active, 404);
 
-        $hasCompletedPurchase = $user->orders()
-            ->where('status', 'delivered')
-            ->whereHas('items', function ($query) use ($product): void {
-                $query->where('product_id', $product->id);
-            })
-            ->exists();
-
-        if (! $hasCompletedPurchase) {
-            return redirect()
-                ->route('products.show', $product->slug)
-                ->with('error', 'Review hanya bisa diberikan setelah pesanan selesai (delivered).');
-        }
-
         $validated = $request->validate([
             'rating' => ['required', 'integer', 'between:1,5'],
             'comment' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        ProductReview::query()->updateOrCreate(
-            [
-                'product_id' => $product->id,
-                'user_id' => $user->id,
-            ],
-            [
-                'rating' => $validated['rating'],
-                'comment' => $validated['comment'] ?? null,
-            ]
-        );
+        try {
+            $this->reviewService->storeReview($user, $product, $validated);
+        } catch (\RuntimeException $exception) {
+            return redirect()
+                ->route('products.show', $product->slug)
+                ->with('error', $exception->getMessage());
+        }
 
         return redirect()
             ->route('products.show', $product->slug)

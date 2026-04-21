@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\Product;
 use App\Models\User;
+use App\Services\CartService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,12 +14,14 @@ use Illuminate\Support\Facades\Auth;
 
 class CartController extends Controller
 {
+    public function __construct(private readonly CartService $cartService) {}
+
     public function index(): View
     {
         /** @var User $user */
         $user = Auth::user();
 
-        $cartItems = $user->carts()->with('product')->latest()->get();
+        $cartItems = $this->cartService->getCartItems($user);
 
         return view('customer.cart', compact('cartItems'));
     }
@@ -32,28 +35,19 @@ class CartController extends Controller
             return redirect()->route('login');
         }
 
-        if (! $product->is_active || $product->stock < 1) {
-            return back()->withErrors(['cart' => 'Produk tidak tersedia untuk ditambahkan ke keranjang.']);
-        }
-
         $validated = $request->validate([
             'quantity' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $requestedQuantity = (int) ($validated['quantity'] ?? 1);
 
-        $cartItem = Cart::query()->firstOrNew([
-            'user_id' => $user->id,
-            'product_id' => $product->id,
-        ]);
+        $result = $this->cartService->addItem($user, $product, $requestedQuantity);
 
-        $currentQuantity = (int) ($cartItem->quantity ?? 0);
-        $nextQuantity = min($currentQuantity + $requestedQuantity, (int) $product->stock);
+        if ($result['status'] === 'error') {
+            return back()->withErrors(['cart' => $result['message']]);
+        }
 
-        $cartItem->quantity = max(1, $nextQuantity);
-        $cartItem->save();
-
-        return back()->with('success', 'Produk berhasil ditambahkan ke keranjang.');
+        return back()->with('success', $result['message']);
     }
 
     public function update(Request $request, Cart $cart): RedirectResponse
@@ -71,10 +65,7 @@ class CartController extends Controller
             'quantity' => ['required', 'integer', 'min:1'],
         ]);
 
-        $maxQuantity = max(1, (int) ($cart->product?->stock ?? $validated['quantity']));
-        $nextQuantity = min((int) $validated['quantity'], $maxQuantity);
-
-        $cart->update(['quantity' => $nextQuantity]);
+        $this->cartService->updateItemQuantity($cart, (int) $validated['quantity']);
 
         return back();
     }
@@ -93,58 +84,11 @@ class CartController extends Controller
             'quantity' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $cartItem = Cart::query()->firstOrNew([
-            'user_id' => $user->id,
-            'product_id' => $product->id,
-        ]);
+        $result = $this->cartService->adjustQuantity($user, $product, $validated['action'], (int) ($validated['quantity'] ?? 0));
 
-        $currentQuantity = (int) ($cartItem->quantity ?? 0);
-        $action = $validated['action'];
-
-        if ($action === 'set') {
-            $requestedQuantity = (int) ($validated['quantity'] ?? 0);
-
-            if ($requestedQuantity <= 0) {
-                if ($cartItem->exists) {
-                    $cartItem->delete();
-                }
-
-                return back();
-            }
-
-            if (! $product->is_active || $product->stock < 1) {
-                return back()->withErrors(['cart' => 'Produk tidak tersedia untuk ditambahkan ke keranjang.']);
-            }
-
-            $nextQuantity = min($requestedQuantity, (int) $product->stock);
-            $cartItem->quantity = max(1, $nextQuantity);
-            $cartItem->save();
-
-            return back();
+        if (isset($result['status']) && $result['status'] === 'error') {
+            return back()->withErrors(['cart' => $result['message']]);
         }
-
-        if ($action === 'increment') {
-            if (! $product->is_active || $product->stock < 1) {
-                return back()->withErrors(['cart' => 'Produk tidak tersedia untuk ditambahkan ke keranjang.']);
-            }
-
-            $nextQuantity = min($currentQuantity + 1, (int) $product->stock);
-            $cartItem->quantity = max(1, $nextQuantity);
-            $cartItem->save();
-
-            return back();
-        }
-
-        if ($currentQuantity <= 1) {
-            if ($cartItem->exists) {
-                $cartItem->delete();
-            }
-
-            return back();
-        }
-
-        $cartItem->quantity = $currentQuantity - 1;
-        $cartItem->save();
 
         return back();
     }
@@ -160,7 +104,7 @@ class CartController extends Controller
 
         abort_unless($cart->user_id === $user->id, 403);
 
-        $cart->delete();
+        $this->cartService->removeItem($cart);
 
         return back()->with('success', 'Item berhasil dihapus dari keranjang.');
     }

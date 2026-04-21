@@ -48,6 +48,7 @@
                         <col style="width: 150px;">
                         <col style="width: 150px;">
                         <col style="width: 160px;">
+                        <col style="width: 150px;">
                     </colgroup>
                     <thead>
                         <tr>
@@ -57,6 +58,7 @@
                             <th class="text-nowrap">Status</th>
                             <th class="text-nowrap">Total</th>
                             <th class="text-nowrap">Tanggal</th>
+                            <th class="text-nowrap">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -85,10 +87,24 @@
                                 </td>
                                 <td>Rp {{ number_format((float) $order->total_price, 0, ',', '.') }}</td>
                                 <td>{{ $order->created_at?->format('d M Y H:i') }}</td>
+                                <td>
+                                    @if ($order->status === 'pending')
+                                        <form action="{{ route('customer.orders.cancel', $order) }}" method="POST"
+                                            onsubmit="return confirm('Batalkan pesanan ini?');">
+                                            @csrf
+                                            @method('PATCH')
+                                            <button type="submit" class="btn btn-sm btn-outline-danger text-nowrap">
+                                                Batalkan
+                                            </button>
+                                        </form>
+                                    @else
+                                        <span class="text-muted small">-</span>
+                                    @endif
+                                </td>
                             </tr>
                             @if ($order->items->isNotEmpty())
                                 <tr class="collapse" id="{{ $orderRowId }}">
-                                    <td colspan="6" class="bg-light-subtle border-top-0 px-3 py-3">
+                                    <td colspan="7" class="bg-light-subtle border-top-0 px-3 py-3">
                                         <div class="table-responsive">
                                             <table class="table table-sm mb-0 align-middle order-items-table">
                                                 <thead>
@@ -154,7 +170,7 @@
                             @endif
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">Belum ada pesanan.</td>
+                                <td colspan="7" class="text-center py-4 text-muted">Belum ada pesanan.</td>
                             </tr>
                         @endforelse
                     </tbody>

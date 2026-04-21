@@ -47,12 +47,31 @@
                             <tr>
                                 <td>{{ $loop->iteration }}</td>
                                 <td>
-                                    <img src="{{ $imageUrl }}" alt="{{ $item->product?->name ?? 'Produk' }}"
-                                        style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px;"
-                                        loading="lazy"
-                                        onerror="this.onerror=null;this.src='https://placehold.co/200x200?text=No+Image';">
+                                    @if ($item->product)
+                                        <a href="{{ route('products.show', $item->product->slug) }}"
+                                            class="text-decoration-none" aria-label="Lihat detail produk">
+                                            <img src="{{ $imageUrl }}" alt="{{ $item->product->name }}"
+                                                style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px;"
+                                                loading="lazy"
+                                                onerror="this.onerror=null;this.src='https://placehold.co/200x200?text=No+Image';">
+                                        </a>
+                                    @else
+                                        <img src="{{ $imageUrl }}" alt="Produk"
+                                            style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px;"
+                                            loading="lazy"
+                                            onerror="this.onerror=null;this.src='https://placehold.co/200x200?text=No+Image';">
+                                    @endif
                                 </td>
-                                <td>{{ $item->product?->name ?? 'Produk tidak tersedia' }}</td>
+                                <td>
+                                    @if ($item->product)
+                                        <a href="{{ route('products.show', $item->product->slug) }}"
+                                            class="text-decoration-none text-dark fw-semibold">
+                                            {{ $item->product->name }}
+                                        </a>
+                                    @else
+                                        Produk tidak tersedia
+                                    @endif
+                                </td>
                                 <td>Rp {{ number_format((float) ($item->product?->price ?? 0), 0, ',', '.') }}</td>
                                 <td>
                                     <div class="d-inline-flex align-items-center gap-2 js-qty-control" data-min="1"

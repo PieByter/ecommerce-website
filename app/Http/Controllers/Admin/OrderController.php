@@ -7,6 +7,7 @@ use App\Models\Order;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
@@ -40,7 +41,29 @@ class OrderController extends Controller
             'tracking_number' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $order->update($validated);
+        $shouldRestoreStock = $order->status !== 'cancelled' && $validated['status'] === 'cancelled';
+
+        if ($shouldRestoreStock) {
+            DB::transaction(function () use ($order, $validated): void {
+                $lockedOrder = Order::query()
+                    ->whereKey($order->id)
+                    ->with('items.product')
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($lockedOrder->status !== 'cancelled') {
+                    foreach ($lockedOrder->items as $item) {
+                        if ($item->product) {
+                            $item->product->increment('stock', (int) $item->quantity);
+                        }
+                    }
+                }
+
+                $lockedOrder->update($validated);
+            });
+        } else {
+            $order->update($validated);
+        }
 
         return redirect()->route('admin.orders.show', $order)->with('success', 'Status pesanan berhasil diperbarui.');
     }

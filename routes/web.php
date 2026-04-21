@@ -67,6 +67,7 @@ Route::middleware(['auth', 'verified', 'role:customer'])->group(function (): voi
     Route::get('checkout', [CheckoutController::class, 'index'])->name('checkout.index');
     Route::post('checkout', [CheckoutController::class, 'store'])->name('checkout.store');
     Route::get('orders', [CustomerOrderController::class, 'index'])->name('customer.orders.index');
+    Route::patch('orders/{order}/cancel', [CustomerOrderController::class, 'cancel'])->name('customer.orders.cancel');
     Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::get('reviews', [CustomerReviewController::class, 'index'])->name('customer.reviews.index');
