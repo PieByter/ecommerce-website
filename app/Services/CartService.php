@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Collection;
 
 class CartService
 {
+    private const PRODUCT_UNAVAILABLE_MESSAGE = 'Produk tidak tersedia untuk ditambahkan ke keranjang.';
+
     public function getCartItems(User $user): Collection
     {
         return $user->carts()->with('product')->latest()->get();
@@ -16,10 +18,10 @@ class CartService
 
     public function addItem(User $user, Product $product, int $quantity = 1): array
     {
-        if (! $product->is_active || $product->stock < 1) {
+        if (! $this->isProductAvailable($product)) {
             return [
                 'status' => 'error',
-                'message' => 'Produk tidak tersedia untuk ditambahkan ke keranjang.',
+                'message' => self::PRODUCT_UNAVAILABLE_MESSAGE,
             ];
         }
 
@@ -28,11 +30,7 @@ class CartService
             'product_id' => $product->id,
         ]);
 
-        $currentQuantity = (int) ($cartItem->quantity ?? 0);
-        $nextQuantity = min($currentQuantity + $quantity, (int) $product->stock);
-
-        $cartItem->quantity = max(1, $nextQuantity);
-        $cartItem->save();
+        $this->setAndSaveQuantity($cartItem, ((int) ($cartItem->quantity ?? 0)) + $quantity, (int) $product->stock);
 
         return [
             'status' => 'success',
@@ -42,10 +40,8 @@ class CartService
 
     public function updateItemQuantity(Cart $cartItem, int $requestedQuantity): void
     {
-        $maxQuantity = max(1, (int) ($cartItem->product?->stock ?? $requestedQuantity));
-        $nextQuantity = min($requestedQuantity, $maxQuantity);
-
-        $cartItem->update(['quantity' => $nextQuantity]);
+        $stock = (int) ($cartItem->product?->stock ?? $requestedQuantity);
+        $this->setAndSaveQuantity($cartItem, $requestedQuantity, $stock);
     }
 
     public function adjustQuantity(User $user, Product $product, string $action, int $requestedQuantity = 0): array
@@ -56,45 +52,76 @@ class CartService
         ]);
 
         $currentQuantity = (int) ($cartItem->quantity ?? 0);
+        $productStock = (int) $product->stock;
 
-        if ($action === 'set') {
-            if ($requestedQuantity <= 0) {
-                if ($cartItem->exists) {
-                    $cartItem->delete();
-                }
+        return match ($action) {
+            'set' => $this->handleSetAction($cartItem, $product, $requestedQuantity, $productStock),
+            'increment' => $this->handleIncrementAction($cartItem, $product, $currentQuantity, $productStock),
+            'decrement' => $this->handleDecrementAction($cartItem, $currentQuantity),
+            default => [
+                'status' => 'error',
+                'message' => 'Aksi jumlah keranjang tidak valid.',
+            ],
+        };
+    }
 
-                return ['status' => 'success'];
+    public function removeItem(Cart $cartItem): void
+    {
+        $cartItem->delete();
+    }
+
+    private function isProductAvailable(Product $product): bool
+    {
+        return $product->is_active && $product->stock > 0;
+    }
+
+    private function setAndSaveQuantity(Cart $cartItem, int $requestedQuantity, int $stock): void
+    {
+        $maxQuantity = max(1, $stock);
+        $nextQuantity = min($requestedQuantity, $maxQuantity);
+
+        $cartItem->quantity = max(1, $nextQuantity);
+        $cartItem->save();
+    }
+
+    private function handleSetAction(Cart $cartItem, Product $product, int $requestedQuantity, int $productStock): array
+    {
+        if ($requestedQuantity <= 0) {
+            if ($cartItem->exists) {
+                $cartItem->delete();
             }
-
-            if (! $product->is_active || $product->stock < 1) {
-                return [
-                    'status' => 'error',
-                    'message' => 'Produk tidak tersedia untuk ditambahkan ke keranjang.',
-                ];
-            }
-
-            $nextQuantity = min($requestedQuantity, (int) $product->stock);
-            $cartItem->quantity = max(1, $nextQuantity);
-            $cartItem->save();
 
             return ['status' => 'success'];
         }
 
-        if ($action === 'increment') {
-            if (! $product->is_active || $product->stock < 1) {
-                return [
-                    'status' => 'error',
-                    'message' => 'Produk tidak tersedia untuk ditambahkan ke keranjang.',
-                ];
-            }
-
-            $nextQuantity = min($currentQuantity + 1, (int) $product->stock);
-            $cartItem->quantity = max(1, $nextQuantity);
-            $cartItem->save();
-
-            return ['status' => 'success'];
+        if (! $this->isProductAvailable($product)) {
+            return [
+                'status' => 'error',
+                'message' => self::PRODUCT_UNAVAILABLE_MESSAGE,
+            ];
         }
 
+        $this->setAndSaveQuantity($cartItem, $requestedQuantity, $productStock);
+
+        return ['status' => 'success'];
+    }
+
+    private function handleIncrementAction(Cart $cartItem, Product $product, int $currentQuantity, int $productStock): array
+    {
+        if (! $this->isProductAvailable($product)) {
+            return [
+                'status' => 'error',
+                'message' => self::PRODUCT_UNAVAILABLE_MESSAGE,
+            ];
+        }
+
+        $this->setAndSaveQuantity($cartItem, $currentQuantity + 1, $productStock);
+
+        return ['status' => 'success'];
+    }
+
+    private function handleDecrementAction(Cart $cartItem, int $currentQuantity): array
+    {
         if ($currentQuantity <= 1) {
             if ($cartItem->exists) {
                 $cartItem->delete();
@@ -107,10 +134,5 @@ class CartService
         $cartItem->save();
 
         return ['status' => 'success'];
-    }
-
-    public function removeItem(Cart $cartItem): void
-    {
-        $cartItem->delete();
     }
 }

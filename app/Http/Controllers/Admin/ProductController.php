@@ -16,7 +16,10 @@ class ProductController extends Controller
 
     public function index(Request $request): View
     {
-        $products = $this->productService->getProductsPaginated($request->string('stock')->toString());
+        $products = $this->productService->getProductsPaginated(
+            $request->string('stock')->toString() ?: null,
+            $request->string('search')->toString() ?: null,
+        );
 
         return view('admin.products.index', compact('products'));
     }

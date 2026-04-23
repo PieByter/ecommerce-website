@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\Supplier;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -13,12 +14,20 @@ use RuntimeException;
 
 class AdminProductService
 {
-    public function getProductsPaginated(?string $stockFilter)
+    public function getProductsPaginated(?string $stockFilter, ?string $search = null): LengthAwarePaginator
     {
         return Product::query()
             ->with(['category', 'supplier'])
             ->when($stockFilter === 'empty', function ($query): void {
                 $query->where('stock', '<=', 0);
+            })
+            ->when(filled($search), function ($query) use ($search): void {
+                $query->where(function ($q) use ($search): void {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhereHas('category', function ($cq) use ($search): void {
+                            $cq->where('name', 'like', "%{$search}%");
+                        });
+                });
             })
             ->latest()
             ->paginate(10)
@@ -57,7 +66,7 @@ class AdminProductService
             'weight' => $validated['weight'] ?? 0,
             'image' => $imagePath,
             'is_active' => $validated['is_active'],
-            'slug' => Str::slug($validated['name']).'-'.Str::random(5),
+            'slug' => Str::slug($validated['name']) . '-' . Str::random(5),
         ];
 
         return Product::query()->create($productPayload);
@@ -69,11 +78,12 @@ class AdminProductService
     public function updateProduct(Product $product, array $validated, ?UploadedFile $uploadedImage): void
     {
         $imagePath = $product->image;
+        $shouldDeleteOldImage = false;
 
         if ($uploadedImage instanceof UploadedFile) {
             try {
-                $this->deleteStoredImageFile($product->image);
                 $imagePath = $this->storeImageFile($uploadedImage);
+                $shouldDeleteOldImage = true;
             } catch (\Throwable $throwable) {
                 Log::error('Product image upload failed during update.', [
                     'product_id' => $product->id,
@@ -93,10 +103,14 @@ class AdminProductService
             'weight' => $validated['weight'] ?? 0,
             'image' => $imagePath,
             'is_active' => $validated['is_active'],
-            'slug' => Str::slug($validated['name']).'-'.$product->id,
+            'slug' => Str::slug($validated['name']) . '-' . $product->id,
         ];
 
         $product->update($productPayload);
+
+        if ($shouldDeleteOldImage) {
+            $this->deleteStoredImageFile($product->getOriginal('image'));
+        }
     }
 
     public function deleteProduct(Product $product): void
@@ -126,7 +140,7 @@ class AdminProductService
             throw new RuntimeException('Unable to store image file.');
         }
 
-        return 'storage/'.$path;
+        return 'storage/' . $path;
     }
 
     private function deleteStoredImageFile(?string $imagePath): void
@@ -165,7 +179,7 @@ class AdminProductService
             return;
         }
 
-        $fullPath = public_path($baseDirectory.'/'.$relativePath);
+        $fullPath = public_path($baseDirectory . '/' . $relativePath);
 
         if (is_file($fullPath)) {
             @unlink($fullPath);

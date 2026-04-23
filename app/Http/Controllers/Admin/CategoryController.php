@@ -11,9 +11,19 @@ use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        $categories = Category::query()->latest()->paginate(10);
+        $categories = Category::query()
+            ->when($request->filled('search'), function ($query) use ($request): void {
+                $search = $request->string('search');
+                $query->where(function ($q) use ($search): void {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('slug', 'like', "%{$search}%");
+                });
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
 
         return view('admin.categories.index', compact('categories'));
     }
@@ -32,7 +42,7 @@ class CategoryController extends Controller
 
         Category::query()->create([
             'name' => $validated['name'],
-            'slug' => $validated['slug'] ?: (Str::slug($validated['name']) . '-' . Str::random(4)),
+            'slug' => $validated['slug'] ?: (Str::slug($validated['name']).'-'.Str::random(4)),
         ]);
 
         return redirect()->route('admin.categories.index')->with('success', 'Kategori berhasil ditambahkan.');
@@ -52,7 +62,7 @@ class CategoryController extends Controller
 
         $category->update([
             'name' => $validated['name'],
-            'slug' => $validated['slug'] ?: (Str::slug($validated['name']) . '-' . $category->id),
+            'slug' => $validated['slug'] ?: (Str::slug($validated['name']).'-'.$category->id),
         ]);
 
         return redirect()->route('admin.categories.index')->with('success', 'Kategori berhasil diperbarui.');

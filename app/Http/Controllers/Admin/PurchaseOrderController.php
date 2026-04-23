@@ -20,7 +20,8 @@ class PurchaseOrderController extends Controller
     public function index(Request $request): View
     {
         $statusFilter = $request->filled('status') ? $request->string('status')->toString() : null;
-        $purchaseOrders = $this->purchaseOrderService->getPurchaseOrdersPaginated($statusFilter);
+        $search = $request->string('search')->toString() ?: null;
+        $purchaseOrders = $this->purchaseOrderService->getPurchaseOrdersPaginated($statusFilter, $search);
 
         return view('admin.purchase-orders.index', compact('purchaseOrders'));
     }

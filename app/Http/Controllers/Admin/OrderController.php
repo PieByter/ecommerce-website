@@ -18,6 +18,15 @@ class OrderController extends Controller
             ->when($request->filled('status'), function ($query) use ($request): void {
                 $query->where('status', $request->string('status'));
             })
+            ->when($request->filled('search'), function ($query) use ($request): void {
+                $search = $request->string('search');
+                $query->where(function ($q) use ($search): void {
+                    $q->where('order_number', 'like', "%{$search}%")
+                        ->orWhereHas('user', function ($uq) use ($search): void {
+                            $uq->where('name', 'like', "%{$search}%");
+                        });
+                });
+            })
             ->latest()
             ->paginate(10)
             ->withQueryString();

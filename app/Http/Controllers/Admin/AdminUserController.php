@@ -13,9 +13,9 @@ class AdminUserController extends Controller
 {
     public function __construct(public AdminUserService $adminUserService) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
-        $admins = $this->adminUserService->getAdmins(10);
+        $admins = $this->adminUserService->getAdmins(10, $request->string('search')->toString() ?: null);
 
         return view('admin.users.index', compact('admins'));
     }

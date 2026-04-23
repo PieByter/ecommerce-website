@@ -4,19 +4,28 @@ namespace App\Services;
 
 use App\Models\Product;
 use App\Models\PurchaseOrder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 class PurchaseOrderService
 {
-    public function getPurchaseOrdersPaginated(?string $statusFilter)
+    public function getPurchaseOrdersPaginated(?string $statusFilter, ?string $search = null): LengthAwarePaginator
     {
         return PurchaseOrder::query()
             ->with('supplier')
             ->withCount('items')
             ->when($statusFilter, function ($query) use ($statusFilter): void {
                 $query->where('status', $statusFilter);
+            })
+            ->when(filled($search), function ($query) use ($search): void {
+                $query->where(function ($q) use ($search): void {
+                    $q->where('po_number', 'like', "%{$search}%")
+                        ->orWhereHas('supplier', function ($sq) use ($search): void {
+                            $sq->where('name', 'like', "%{$search}%");
+                        });
+                });
             })
             ->latest()
             ->paginate(10)
