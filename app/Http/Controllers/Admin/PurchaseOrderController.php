@@ -30,7 +30,7 @@ class PurchaseOrderController extends Controller
     {
         $suppliers = Supplier::query()->orderBy('name')->get();
         $products = Product::query()
-            ->with('supplier')
+            ->with('suppliers')
             ->where('is_active', true)
             ->orderBy('name')
             ->get();

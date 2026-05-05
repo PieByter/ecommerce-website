@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Supplier;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -17,7 +18,7 @@ class AdminProductService
     public function getProductsPaginated(?string $stockFilter, ?string $search = null): LengthAwarePaginator
     {
         return Product::query()
-            ->with(['category', 'supplier'])
+            ->with(['category', 'suppliers'])
             ->when($stockFilter === 'empty', function ($query): void {
                 $query->where('stock', '<=', 0);
             })
@@ -37,8 +38,8 @@ class AdminProductService
     public function getCategoriesAndSuppliers(): array
     {
         return [
-            'categories' => Category::query()->orderBy('name')->get(),
-            'suppliers' => Supplier::query()->orderBy('name')->get(),
+            'categories' => Category::all()->sortBy('name')->values(),
+            'suppliers' => Supplier::all()->sortBy('name')->values(),
         ];
     }
 
@@ -58,7 +59,6 @@ class AdminProductService
 
         $productPayload = [
             'category_id' => $validated['category_id'],
-            'supplier_id' => $validated['supplier_id'] ?? null,
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
             'price' => $validated['price'],
@@ -69,7 +69,14 @@ class AdminProductService
             'slug' => Str::slug($validated['name']) . '-' . Str::random(5),
         ];
 
-        return Product::query()->create($productPayload);
+        $product = Product::query()->create($productPayload);
+        $supplierIds = $this->normalizeSupplierIds($validated);
+
+        if ($supplierIds !== []) {
+            $product->suppliers()->sync($supplierIds);
+        }
+
+        return $product;
     }
 
     /**
@@ -95,7 +102,6 @@ class AdminProductService
 
         $productPayload = [
             'category_id' => $validated['category_id'],
-            'supplier_id' => $validated['supplier_id'] ?? null,
             'name' => $validated['name'],
             'description' => $validated['description'] ?? null,
             'price' => $validated['price'],
@@ -107,6 +113,7 @@ class AdminProductService
         ];
 
         $product->update($productPayload);
+        $product->suppliers()->sync($this->normalizeSupplierIds($validated));
 
         if ($shouldDeleteOldImage) {
             $this->deleteStoredImageFile($product->getOriginal('image'));
@@ -116,7 +123,7 @@ class AdminProductService
     public function deleteProduct(Product $product): void
     {
         $this->deleteStoredImageFile($product->image);
-        $product->delete();
+        Product::destroy($product->getKey());
     }
 
     public function resolveUploadErrorMessage(UploadedFile $file): string
@@ -184,5 +191,21 @@ class AdminProductService
         if (is_file($fullPath)) {
             @unlink($fullPath);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<int, int>
+     */
+    private function normalizeSupplierIds(array $validated): array
+    {
+        $supplierIds = Arr::wrap($validated['supplier_ids'] ?? []);
+
+        return collect($supplierIds)
+            ->map(fn($id): int => (int) $id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 }

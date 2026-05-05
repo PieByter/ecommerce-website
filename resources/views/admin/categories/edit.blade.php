@@ -19,7 +19,7 @@
                     <input type="text" name="slug" class="form-control" value="{{ old('slug', $category->slug) }}">
                 </div>
                 <div class="col-12">
-                    <button type="submit" class="btn btn-danger">Update</button>
+                    <button type="submit" class="btn btn-primary">Update</button>
                     <a href="{{ route('admin.categories.index') }}" class="btn btn-outline-secondary">Kembali</a>
                 </div>
             </form>

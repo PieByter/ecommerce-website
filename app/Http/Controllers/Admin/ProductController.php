@@ -52,7 +52,8 @@ class ProductController extends Controller
 
         $validated = $request->validate([
             'category_id' => ['required', 'exists:categories,id'],
-            'supplier_id' => ['nullable', 'exists:suppliers,id'],
+            'supplier_ids' => ['nullable', 'array'],
+            'supplier_ids.*' => ['integer', 'exists:suppliers,id'],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'price' => ['required', 'numeric', 'min:0'],
@@ -61,7 +62,7 @@ class ProductController extends Controller
             'image_file' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:1024'],
         ]);
 
-        $validated['is_active'] = $request->boolean('is_active', true);
+        $validated['is_active'] = $request->boolean('is_active');
 
         try {
             $this->productService->storeProduct($validated, $uploadedImage);
@@ -76,6 +77,7 @@ class ProductController extends Controller
 
     public function edit(Product $product): View
     {
+        $product->load('suppliers');
         $data = $this->productService->getCategoriesAndSuppliers();
 
         return view('admin.products.edit', [
@@ -101,7 +103,8 @@ class ProductController extends Controller
 
         $validated = $request->validate([
             'category_id' => ['required', 'exists:categories,id'],
-            'supplier_id' => ['nullable', 'exists:suppliers,id'],
+            'supplier_ids' => ['nullable', 'array'],
+            'supplier_ids.*' => ['integer', 'exists:suppliers,id'],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'price' => ['required', 'numeric', 'min:0'],
@@ -110,7 +113,7 @@ class ProductController extends Controller
             'image_file' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:1024'],
         ]);
 
-        $validated['is_active'] = $request->boolean('is_active', true);
+        $validated['is_active'] = $request->boolean('is_active');
 
         try {
             $this->productService->updateProduct($product, $validated, $uploadedImage);

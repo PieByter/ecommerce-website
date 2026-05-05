@@ -48,7 +48,12 @@ class SupplierController extends Controller
 
     public function edit(Supplier $supplier): View
     {
-        return view('admin.suppliers.edit', compact('supplier'));
+        $supplier->load(['products.category']);
+
+        return view('admin.suppliers.edit', [
+            'supplier' => $supplier,
+            'products' => $supplier->products,
+        ]);
     }
 
     public function update(Request $request, Supplier $supplier): RedirectResponse
@@ -66,7 +71,7 @@ class SupplierController extends Controller
 
     public function destroy(Supplier $supplier): RedirectResponse
     {
-        $supplier->delete();
+        Supplier::destroy($supplier->getKey());
 
         return redirect()->route('admin.suppliers.index')->with('success', 'Supplier berhasil dihapus.');
     }

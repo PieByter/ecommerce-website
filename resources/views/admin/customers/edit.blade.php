@@ -59,7 +59,7 @@
                     @enderror
                 </div>
                 <div class="col-12">
-                    <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                    <button type="submit" class="btn btn-primary">Update</button>
                     <a href="{{ route('admin.customers.index') }}" class="btn btn-outline-secondary">Kembali</a>
                 </div>
             </form>

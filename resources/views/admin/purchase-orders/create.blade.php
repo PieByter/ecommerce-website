@@ -95,11 +95,17 @@
                                                 class="form-select item-product" required>
                                                 <option value="">Pilih produk</option>
                                                 @foreach ($products as $product)
+                                                    @php
+                                                        $supplierNames = $product->suppliers
+                                                            ->pluck('name')
+                                                            ->implode(', ');
+                                                        $supplierIds = $product->suppliers->pluck('id')->implode(',');
+                                                    @endphp
                                                     <option value="{{ $product->id }}"
-                                                        data-supplier-id="{{ $product->supplier_id ?? '' }}"
+                                                        data-supplier-ids="{{ $supplierIds }}"
                                                         @selected((int) ($item['product_id'] ?? 0) === (int) $product->id)>
                                                         {{ $product->name }}
-                                                        {{ $product->supplier?->name ? ' - ' . $product->supplier->name : '' }}
+                                                        {{ $supplierNames !== '' ? ' - ' . $supplierNames : '' }}
                                                     </option>
                                                 @endforeach
                                             </select>
@@ -203,8 +209,12 @@
                             return;
                         }
 
-                        const optionSupplierId = option.getAttribute('data-supplier-id') || '';
-                        option.hidden = supplierId !== '' && optionSupplierId !== supplierId;
+                        const optionSupplierIds = option.getAttribute('data-supplier-ids') ||
+                        '';
+                        const supplierIdList = optionSupplierIds === '' ? [] : optionSupplierIds
+                            .split(',');
+                        option.hidden = supplierId !== '' && !supplierIdList.includes(
+                            supplierId);
                     });
 
                     if (selectedOption && selectedOption.hidden) {

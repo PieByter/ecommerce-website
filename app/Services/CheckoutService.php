@@ -58,7 +58,7 @@ class CheckoutService
                 }
 
                 if ((int) $item->quantity > (int) $product->stock) {
-                    throw new RuntimeException('Stok produk tidak mencukupi untuk checkout.');
+                    throw new RuntimeException('Stok produk '.$product->name.' tidak mencukupi untuk checkout.');
                 }
 
                 $subtotal += ((float) $product->price * (int) $item->quantity);

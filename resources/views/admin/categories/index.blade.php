@@ -11,11 +11,7 @@
         </a>
     </div>
 
-    <x-admin-table
-        :columns="['No', 'Nama', 'Slug', 'Aksi']"
-        search-route="admin.categories.index"
-        search-placeholder="Cari kategori..."
-    >
+    <x-admin-table :columns="['No', 'Nama', 'Slug', 'Aksi']" search-route="admin.categories.index" search-placeholder="Cari kategori...">
         @forelse($categories as $category)
             <tr class="text-center">
                 <td>{{ $categories->firstItem() + $loop->index }}</td>
@@ -24,13 +20,12 @@
                 <td>
                     <div class="d-flex gap-2 justify-content-center">
                         <a href="{{ route('admin.categories.edit', $category) }}"
-                            class="btn btn-sm btn-outline-warning admin-action-btn"
-                            title="Edit kategori" aria-label="Edit kategori">
+                            class="btn btn-sm btn-outline-warning admin-action-btn" title="Edit kategori"
+                            aria-label="Edit kategori">
                             <i class="bi bi-pencil"></i>
                         </a>
-                        <button type="button" class="btn btn-sm btn-outline-danger admin-action-btn"
-                            title="Hapus kategori" aria-label="Hapus kategori"
-                            data-bs-toggle="modal" data-bs-target="#deleteCategoryModal"
+                        <button type="button" class="btn btn-sm btn-outline-danger admin-action-btn" title="Hapus kategori"
+                            aria-label="Hapus kategori" data-bs-toggle="modal" data-bs-target="#deleteCategoryModal"
                             data-delete-url="{{ route('admin.categories.destroy', $category) }}"
                             data-delete-name="{{ $category->name }}">
                             <i class="bi bi-trash"></i>
@@ -45,11 +40,6 @@
 
     <div class="mt-3">{{ $categories->links('pagination::bootstrap-5') }}</div>
 
-    <x-delete-modal
-        id="deleteCategoryModal"
-        form-id="deleteCategoryForm"
-        name-target-id="deleteCategoryName"
-        confirm-btn-id="confirmDeleteCategoryBtn"
-        label="Kategori"
-    />
+    <x-delete-modal id="deleteCategoryModal" form-id="deleteCategoryForm" name-target-id="deleteCategoryName"
+        confirm-btn-id="confirmDeleteCategoryBtn" label="Kategori" />
 @endsection

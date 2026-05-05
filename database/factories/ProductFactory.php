@@ -21,7 +21,7 @@ class ProductFactory extends Factory
     public function definition(): array
     {
         $name = Str::title($this->faker->words(3, true));
-        $categoryId = Category::query()->inRandomOrder()->value('id')
+        $categoryId = Category::query()->inRandomOrder()->first()?->id
             ?? Category::query()->firstOrCreate(
                 ['slug' => 'lain-lain'],
                 ['name' => 'Lain-lain', 'parent_id' => null, 'sort_order' => 999],
@@ -29,7 +29,6 @@ class ProductFactory extends Factory
 
         return [
             'category_id' => $categoryId,
-            'supplier_id' => Supplier::factory(),
             'name' => $name,
             'slug' => $this->faker->unique()->slug(3),
             'description' => $this->faker->paragraph(),
@@ -39,5 +38,17 @@ class ProductFactory extends Factory
             'image' => $this->faker->imageUrl(800, 800, 'transport', true),
             'is_active' => $this->faker->boolean(90),
         ];
+    }
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (Product $product): void {
+            if ($product->id && $product->exists) {
+                $supplier = Supplier::factory()->createOne();
+                if ($supplier->id) {
+                    $product->suppliers()->attach($supplier->id);
+                }
+            }
+        });
     }
 }

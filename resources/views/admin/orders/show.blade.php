@@ -145,7 +145,7 @@
                                 value="{{ old('tracking_number', $order->tracking_number) }}">
                         </div>
                         <div class="col-12">
-                            <button class="btn btn-danger w-100" type="submit">Simpan Perubahan</button>
+                            <button class="btn btn-danger w-100" type="submit">Update</button>
                         </div>
                     </form>
                 </div>

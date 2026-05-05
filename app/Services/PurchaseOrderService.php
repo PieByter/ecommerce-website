@@ -39,7 +39,7 @@ class PurchaseOrderService
     {
         $supplierId = (int) $validated['supplier_id'];
         $requestedItems = collect($validated['items'])
-            ->filter(fn (array $item): bool => (int) ($item['quantity'] ?? 0) > 0)
+            ->filter(fn(array $item): bool => (int) ($item['quantity'] ?? 0) > 0)
             ->values();
 
         if ($requestedItems->isEmpty()) {
@@ -48,16 +48,22 @@ class PurchaseOrderService
             ]);
         }
 
-        $productIds = $requestedItems->pluck('product_id')->map(fn ($id): int => (int) $id)->unique()->values();
+        $productIds = $requestedItems->pluck('product_id')->map(fn($id): int => (int) $id)->unique()->values();
         $products = Product::query()
-            ->whereIn('id', $productIds->all())
-            ->get()
+            ->findMany($productIds->all())
             ->keyBy('id');
+
+        $validSupplierProductIds = DB::table('product_supplier')
+            ->where('supplier_id', $supplierId)
+            ->whereIntegerInRaw('product_id', $productIds->all())
+            ->pluck('product_id')
+            ->map(fn($id): int => (int) $id)
+            ->all();
 
         foreach ($productIds as $productId) {
             $product = $products->get($productId);
 
-            if (! $product || (int) $product->supplier_id !== $supplierId) {
+            if (! $product || ! in_array($productId, $validSupplierProductIds, true)) {
                 throw ValidationException::withMessages([
                     'items' => 'Semua produk PO harus berasal dari supplier yang dipilih.',
                 ]);
@@ -127,7 +133,7 @@ class PurchaseOrderService
             throw new RuntimeException('PO yang sudah diterima tidak dapat dihapus.');
         }
 
-        $purchaseOrder->delete();
+        PurchaseOrder::destroy($purchaseOrder->getKey());
     }
 
     /**
@@ -168,10 +174,10 @@ class PurchaseOrderService
     private function generatePoNumber(): string
     {
         $dateCode = now()->format('Ymd');
-        $prefix = 'PO-'.$dateCode.'-';
+        $prefix = 'PO-' . $dateCode . '-';
 
         $lastPoToday = PurchaseOrder::query()
-            ->where('po_number', 'like', $prefix.'%')
+            ->where('po_number', 'like', $prefix . '%')
             ->latest('id')
             ->value('po_number');
 
@@ -182,6 +188,6 @@ class PurchaseOrderService
             $nextSequence = $lastSequence + 1;
         }
 
-        return $prefix.str_pad((string) $nextSequence, 4, '0', STR_PAD_LEFT);
+        return $prefix . str_pad((string) $nextSequence, 4, '0', STR_PAD_LEFT);
     }
 }

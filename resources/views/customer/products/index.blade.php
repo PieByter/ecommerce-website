@@ -36,8 +36,7 @@
             @if ($otherCategories->isNotEmpty())
                 <div class="dropdown">
                     <button class="badge rounded-pill text-bg-light border text-dark px-3 py-2 dropdown-toggle"
-                        style="cursor: pointer;" type="button"
-                        data-bs-toggle="dropdown" aria-expanded="false">
+                        style="cursor: pointer;" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                         +{{ $otherCategories->count() }} lainnya
                     </button>
                     <div class="dropdown-menu dropdown-menu-end shadow-sm p-3 border-0"
@@ -75,7 +74,9 @@
                         $averageRating = (float) ($product->avg_rating ?? 0);
                         $ratingStars = max(0, min(5, (int) round($averageRating)));
                         $cartQuantity = (int) ($cartQuantities[$product->id] ?? 0);
+                        $isInactive = !$product->is_active;
                         $isOutOfStock = (int) $product->stock <= 0;
+                        $isUnavailable = $isInactive || $isOutOfStock;
                         $quantityMax = max($cartQuantity, (int) $product->stock);
                     @endphp
                     <div class="card h-100 border-0 shadow-sm">
@@ -89,6 +90,11 @@
                                     <div class="position-absolute top-0 inset-s-0 w-100 h-100 d-flex align-items-center justify-content-center"
                                         style="background: rgba(0, 0, 0, 0.35);">
                                         <span class="badge rounded-pill text-bg-danger px-3 py-2">Barang Kosong</span>
+                                    </div>
+                                @endif
+                                @if ($isInactive)
+                                    <div class="position-absolute top-0 inset-s-0 m-2">
+                                        <span class="badge text-bg-danger">Tidak Aktif</span>
                                     </div>
                                 @endif
                             </div>
@@ -107,6 +113,9 @@
                             @if ($isOutOfStock)
                                 <div class="small text-danger fw-semibold">Barang Kosong</div>
                             @endif
+                            @if ($isInactive)
+                                <div class="small text-danger fw-semibold">Produk tidak aktif</div>
+                            @endif
                             <div class="small text-warning d-flex align-items-center gap-1">
                                 @for ($i = 1; $i <= 5; $i++)
                                     <i class="bi {{ $i <= $ratingStars ? 'bi-star-fill' : 'bi-star' }}"></i>
@@ -118,7 +127,8 @@
                                 <form method="POST" action="{{ route('cart.adjust', $product) }}" class="m-0">
                                     @csrf
                                     <input type="hidden" name="action" value="decrement">
-                                    <button type="submit" class="btn btn-sm btn-outline-secondary">-</button>
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary"
+                                        @disabled($isUnavailable)>-</button>
                                 </form>
 
                                 <form method="POST" action="{{ route('cart.adjust', $product) }}" class="m-0">
@@ -127,14 +137,14 @@
                                     <input type="number" name="quantity" class="form-control form-control-sm text-center"
                                         value="{{ $cartQuantity }}" min="0" max="{{ $quantityMax }}"
                                         style="width: 88px;" aria-label="Jumlah item di keranjang"
-                                        onchange="this.form.submit()">
+                                        onchange="this.form.submit()" @disabled($isUnavailable)>
                                 </form>
 
                                 <form method="POST" action="{{ route('cart.adjust', $product) }}" class="m-0">
                                     @csrf
                                     <input type="hidden" name="action" value="increment">
                                     <button type="submit" class="btn btn-sm btn-danger"
-                                        @disabled($isOutOfStock)>+</button>
+                                        @disabled($isUnavailable)>+</button>
                                 </form>
                             </div>
                         </div>

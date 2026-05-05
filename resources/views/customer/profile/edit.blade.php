@@ -75,7 +75,7 @@
                             </div>
 
                             <div class="col-12 d-flex justify-content-end">
-                                <button type="submit" class="btn btn-danger px-4">Simpan Perubahan</button>
+                                <button type="submit" class="btn btn-danger px-4">Update</button>
                             </div>
                         </form>
                     </div>

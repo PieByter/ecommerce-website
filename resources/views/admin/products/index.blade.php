@@ -16,12 +16,8 @@
         </a>
     </div>
 
-    <x-admin-table
-        :columns="['No', 'Gambar', 'Nama', 'Kategori', 'Supplier', 'Harga', 'Stok', 'Aksi']"
-        search-route="admin.products.index"
-        search-placeholder="Cari produk..."
-        :filter-slot="true"
-    >
+    <x-admin-table :columns="['No', 'Gambar', 'Nama', 'Kategori', 'Supplier', 'Harga', 'Stok', 'Status', 'Aksi']" search-route="admin.products.index" search-placeholder="Cari produk..."
+        :filter-slot="true">
         {{-- Filter slot --}}
         <x-slot name="filter">
             <form method="GET" action="{{ route('admin.products.index') }}" class="d-flex align-items-center gap-2">
@@ -51,13 +47,12 @@
                                     : asset($rawImage));
                     @endphp
                     <img src="{{ $imageUrl }}" alt="{{ $product->name }}"
-                        style="width: 64px; height: 64px; object-fit: cover; border-radius: 8px;"
-                        loading="lazy"
+                        style="width: 64px; height: 64px; object-fit: cover; border-radius: 8px;" loading="lazy"
                         onerror="this.onerror=null;this.src='https://placehold.co/200x200?text=No+Image';">
                 </td>
                 <td class="text-start">{{ $product->name }}</td>
                 <td>{{ $product->category?->name }}</td>
-                <td>{{ $product->supplier?->name ?? '-' }}</td>
+                <td>{{ $product->suppliers->pluck('name')->implode(', ') ?: '-' }}</td>
                 <td>Rp {{ number_format((float) $product->price, 0, ',', '.') }}</td>
                 <td>
                     @if ($product->stock === 0)
@@ -69,15 +64,21 @@
                     @endif
                 </td>
                 <td>
+                    @if ($product->is_active)
+                        <span class="badge text-bg-success">Aktif</span>
+                    @else
+                        <span class="badge text-bg-danger">Tidak Aktif</span>
+                    @endif
+                </td>
+                <td>
                     <div class="d-flex gap-2 justify-content-center">
                         <a href="{{ route('admin.products.edit', $product) }}"
-                            class="btn btn-sm btn-outline-warning text-decoration-none admin-action-btn"
-                            title="Edit produk" aria-label="Edit produk">
+                            class="btn btn-sm btn-outline-warning text-decoration-none admin-action-btn" title="Edit produk"
+                            aria-label="Edit produk">
                             <i class="bi bi-pencil"></i>
                         </a>
-                        <button type="button" class="btn btn-sm btn-outline-danger admin-action-btn"
-                            title="Hapus produk" aria-label="Hapus produk"
-                            data-bs-toggle="modal" data-bs-target="#deleteProductModal"
+                        <button type="button" class="btn btn-sm btn-outline-danger admin-action-btn" title="Hapus produk"
+                            aria-label="Hapus produk" data-bs-toggle="modal" data-bs-target="#deleteProductModal"
                             data-delete-url="{{ route('admin.products.destroy', $product) }}"
                             data-delete-name="{{ $product->name }}">
                             <i class="bi bi-trash"></i>
@@ -86,18 +87,13 @@
                 </td>
             </tr>
         @empty
-            <x-table-empty-row :colspan="8"
+            <x-table-empty-row :colspan="9"
                 message="{{ $isEmptyStockFilterActive ? 'Tidak ada produk dengan stok kosong.' : 'Belum ada produk.' }}" />
         @endforelse
     </x-admin-table>
 
     <div class="mt-3">{{ $products->links('pagination::bootstrap-5') }}</div>
 
-    <x-delete-modal
-        id="deleteProductModal"
-        form-id="deleteProductForm"
-        name-target-id="deleteProductName"
-        confirm-btn-id="confirmDeleteProductBtn"
-        label="Produk"
-    />
+    <x-delete-modal id="deleteProductModal" form-id="deleteProductForm" name-target-id="deleteProductName"
+        confirm-btn-id="confirmDeleteProductBtn" label="Produk" />
 @endsection

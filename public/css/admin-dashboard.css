@@ -1,0 +1,569 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Dashboard — Premium Styles
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Animations ─── */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+@keyframes countUp {
+    from {
+        opacity: 0;
+        transform: scale(0.85);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+@keyframes pulse-dot {
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.6);
+        opacity: 0.4;
+    }
+}
+
+/* ─── Dashboard Greeting ─── */
+.dashboard-greeting {
+    animation: fadeInUp 0.5s ease-out;
+}
+.dashboard-greeting h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #1a1f2e;
+    margin: 0 0 0.2rem;
+}
+.dashboard-greeting p {
+    color: #6b7280;
+    font-size: 0.9rem;
+    margin: 0;
+}
+.dashboard-greeting .greeting-date {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    margin-top: 0.15rem;
+}
+
+/* ─── Stat Cards (Redesigned) ─── */
+.stat-cards-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.stat-card-wrapper {
+    animation: fadeInUp 0.5s ease-out both;
+}
+.stat-card-wrapper:nth-child(1) {
+    animation-delay: 0.05s;
+}
+.stat-card-wrapper:nth-child(2) {
+    animation-delay: 0.12s;
+}
+.stat-card-wrapper:nth-child(3) {
+    animation-delay: 0.19s;
+}
+.stat-card-wrapper:nth-child(4) {
+    animation-delay: 0.26s;
+}
+
+.stat-card {
+    position: relative;
+    border-radius: 16px;
+    padding: 1.4rem 1.5rem;
+    color: #fff;
+    min-height: 128px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease;
+    cursor: default;
+}
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+
+/* Decorative circle */
+.stat-card::before {
+    content: "";
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    top: -30px;
+    right: -30px;
+    transition: transform 0.4s ease;
+}
+.stat-card:hover::before {
+    transform: scale(1.2);
+}
+.stat-card::after {
+    content: "";
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    bottom: -20px;
+    left: -15px;
+}
+
+/* Gradient variants */
+.stat-card--customers {
+    background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
+    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.3);
+}
+.stat-card--products {
+    background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+    box-shadow: 0 6px 20px rgba(34, 197, 94, 0.3);
+}
+.stat-card--orders {
+    background: linear-gradient(135deg, #f97316 0%, #c2410c 100%);
+    box-shadow: 0 6px 20px rgba(249, 115, 22, 0.3);
+}
+.stat-card--revenue {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.3);
+}
+
+.stat-card .stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    position: relative;
+    z-index: 1;
+}
+
+.stat-card .stat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    backdrop-filter: blur(4px);
+    transition: background 0.3s ease;
+}
+.stat-card:hover .stat-icon {
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.stat-card .stat-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    opacity: 0.85;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.stat-card .stat-value {
+    font-size: 1.85rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-top: 0.4rem;
+    animation: countUp 0.6s ease-out both;
+    position: relative;
+    z-index: 1;
+}
+
+.stat-card .stat-footer {
+    font-size: 0.72rem;
+    opacity: 0.7;
+    position: relative;
+    z-index: 1;
+    margin-top: 0.4rem;
+}
+
+/* ─── Pending Alert ─── */
+.dashboard-pending-alert {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 1px solid #f59e0b;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    animation: fadeInUp 0.5s ease-out 0.35s both;
+    transition: box-shadow 0.2s ease;
+}
+.dashboard-pending-alert:hover {
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
+}
+.dashboard-pending-alert .alert-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #f59e0b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+.dashboard-pending-alert .alert-text {
+    color: #92400e;
+    font-size: 0.88rem;
+    font-weight: 500;
+}
+.dashboard-pending-alert .alert-text strong {
+    font-weight: 700;
+    color: #78350f;
+}
+.dashboard-pending-alert .alert-action {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+.dashboard-pending-alert .alert-action a {
+    font-size: 0.78rem;
+    padding: 0.35rem 0.8rem;
+    border-radius: 8px;
+    background: #f59e0b;
+    color: #fff;
+    text-decoration: none;
+    font-weight: 600;
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease;
+}
+.dashboard-pending-alert .alert-action a:hover {
+    background: #d97706;
+    transform: translateY(-1px);
+}
+
+/* ─── Quick Actions Grid ─── */
+.quick-actions {
+    animation: fadeInUp 0.5s ease-out 0.3s both;
+}
+.quick-actions-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9ca3af;
+    margin-bottom: 0.75rem;
+}
+.quick-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    text-decoration: none;
+    color: #374151;
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+.quick-action-btn:hover {
+    border-color: transparent;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+    color: #111827;
+}
+.quick-action-btn .qa-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+}
+.quick-action-btn:hover .qa-icon {
+    transform: scale(1.1);
+}
+.quick-action-btn .qa-icon--blue {
+    background: #dbeafe;
+    color: #2563eb;
+}
+.quick-action-btn .qa-icon--green {
+    background: #dcfce7;
+    color: #16a34a;
+}
+.quick-action-btn .qa-icon--orange {
+    background: #ffedd5;
+    color: #ea580c;
+}
+.quick-action-btn .qa-icon--purple {
+    background: #ede9fe;
+    color: #7c3aed;
+}
+
+/* ─── Recent Orders Card (Redesigned) ─── */
+.dashboard-card {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    animation: fadeInUp 0.5s ease-out 0.4s both;
+    transition: box-shadow 0.3s ease;
+}
+.dashboard-card:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+.dashboard-card .card-header {
+    background: #fff;
+    border-bottom: 1px solid #f3f4f6;
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.dashboard-card .card-header-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #1f2937;
+}
+.dashboard-card .card-header-title .header-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+}
+.dashboard-card .card-header-title .header-icon--orders {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.dashboard-card .view-all-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-decoration: none;
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+.dashboard-card .view-all-link:hover {
+    background: #f3f4f6;
+    color: #e63946;
+}
+.dashboard-card .view-all-link i {
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+}
+.dashboard-card .view-all-link:hover i {
+    transform: translateX(3px);
+}
+
+/* Table within dashboard card */
+.dashboard-table {
+    margin: 0;
+    font-size: 0.88rem;
+}
+.dashboard-table thead th {
+    background: #f9fafb;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9ca3af;
+    border-bottom: 1px solid #f3f4f6;
+    padding: 0.75rem 1rem;
+}
+.dashboard-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+.dashboard-table tbody tr:hover {
+    background-color: #f9fafb;
+}
+.dashboard-table tbody td {
+    padding: 0.85rem 1rem;
+    color: #374151;
+    vertical-align: middle;
+    border-bottom: 1px solid #f3f4f6;
+}
+.dashboard-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Order number link */
+.order-number-link {
+    color: #2563eb;
+    font-weight: 600;
+    font-size: 0.85rem;
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+.order-number-link:hover {
+    color: #e63946;
+    text-decoration: underline;
+}
+
+/* Status badge redesign */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3em 0.7em;
+    border-radius: 20px;
+    font-size: 0.73rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+.status-badge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.status-badge--pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+.status-badge--pending::before {
+    background: #f59e0b;
+    animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.status-badge--confirmed {
+    background: #dbeafe;
+    color: #1e40af;
+}
+.status-badge--confirmed::before {
+    background: #3b82f6;
+}
+
+.status-badge--processing {
+    background: #e0f2fe;
+    color: #0c4a6e;
+}
+.status-badge--processing::before {
+    background: #0ea5e9;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+.status-badge--shipped {
+    background: #e2e8f0;
+    color: #475569;
+}
+.status-badge--shipped::before {
+    background: #64748b;
+}
+
+.status-badge--delivered {
+    background: #dcfce7;
+    color: #166534;
+}
+.status-badge--delivered::before {
+    background: #22c55e;
+}
+
+.status-badge--cancelled {
+    background: #fee2e2;
+    color: #991b1b;
+}
+.status-badge--cancelled::before {
+    background: #ef4444;
+}
+
+/* Price styling */
+.price-text {
+    font-weight: 600;
+    color: #1f2937;
+    white-space: nowrap;
+}
+
+/* Time text */
+.time-text {
+    color: #9ca3af;
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+/* Empty state */
+.dashboard-empty {
+    padding: 3rem 1rem;
+    text-align: center;
+}
+.dashboard-empty .empty-icon {
+    font-size: 2.5rem;
+    color: #d1d5db;
+    margin-bottom: 0.75rem;
+}
+.dashboard-empty .empty-text {
+    color: #9ca3af;
+    font-size: 0.9rem;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 767.98px) {
+    .stat-cards-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .stat-card .stat-value {
+        font-size: 1.4rem;
+    }
+    .stat-card {
+        padding: 1.1rem 1.2rem;
+        min-height: 110px;
+    }
+    .dashboard-greeting h1 {
+        font-size: 1.3rem;
+    }
+    .dashboard-pending-alert {
+        flex-wrap: wrap;
+    }
+    .dashboard-pending-alert .alert-action {
+        margin-left: 0;
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+    .dashboard-pending-alert .alert-action a {
+        display: block;
+        text-align: center;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .stat-cards-row {
+        grid-template-columns: 1fr;
+    }
+    .quick-actions .row .col-6 {
+        width: 100%;
+    }
+}
