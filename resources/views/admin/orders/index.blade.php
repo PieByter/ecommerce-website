@@ -5,15 +5,7 @@
 
 @section('content')
     @php
-        $statuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
-        $statusClasses = [
-            'pending'    => 'text-warning-emphasis bg-warning-subtle',
-            'confirmed'  => 'text-primary-emphasis bg-primary-subtle',
-            'processing' => 'text-info-emphasis bg-info-subtle',
-            'shipped'    => 'text-secondary-emphasis bg-secondary-subtle',
-            'delivered'  => 'text-success-emphasis bg-success-subtle',
-            'cancelled'  => 'text-danger-emphasis bg-danger-subtle',
-        ];
+        $statuses = \App\Models\Order::STATUSES;
     @endphp
 
     <x-admin-table
@@ -33,7 +25,7 @@
                     <option value="">Semua Status</option>
                     @foreach ($statuses as $status)
                         <option value="{{ $status }}" @selected(request('status') === $status)>
-                            {{ ucfirst($status) }}
+                            {{ \Illuminate\Support\Str::headline($status) }}
                         </option>
                     @endforeach
                 </select>
@@ -46,11 +38,11 @@
                 <td><code>{{ $order->order_number }}</code></td>
                 <td>{{ $order->user?->name }}</td>
                 <td>
-                    <span class="badge {{ $statusClasses[$order->status] ?? 'text-bg-secondary' }}">
-                        {{ ucfirst($order->status) }}
+                    <span class="badge {{ $order->status_badge_class }}">
+                        {{ $order->status_label }}
                     </span>
                 </td>
-                <td>Rp {{ number_format((float) $order->total_price, 0, ',', '.') }}</td>
+                <td>Rp {{ number_format($order->grand_total, 0, ',', '.') }}</td>
                 <td>{{ $order->created_at->format('d M Y') }}</td>
                 <td>
                     <a class="btn btn-sm btn-outline-primary admin-action-btn"

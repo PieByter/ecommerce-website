@@ -13,6 +13,7 @@ class SupplierController extends Controller
     public function index(Request $request): View
     {
         $suppliers = Supplier::query()
+            ->withCount(['products', 'purchaseOrders'])
             ->when($request->filled('search'), function ($query) use ($request): void {
                 $search = $request->string('search');
                 $query->where(function ($q) use ($search): void {
@@ -35,11 +36,7 @@ class SupplierController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:30'],
-            'address' => ['nullable', 'string'],
-        ]);
+        $validated = $this->validateSupplier($request);
 
         Supplier::query()->create($validated);
 
@@ -48,21 +45,21 @@ class SupplierController extends Controller
 
     public function edit(Supplier $supplier): View
     {
-        $supplier->load(['products.category']);
+        $products = $supplier->products()
+            ->with('category')
+            ->orderBy('name')
+            ->paginate(10)
+            ->withQueryString();
 
         return view('admin.suppliers.edit', [
             'supplier' => $supplier,
-            'products' => $supplier->products,
+            'products' => $products,
         ]);
     }
 
     public function update(Request $request, Supplier $supplier): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:30'],
-            'address' => ['nullable', 'string'],
-        ]);
+        $validated = $this->validateSupplier($request);
 
         $supplier->update($validated);
 
@@ -71,8 +68,28 @@ class SupplierController extends Controller
 
     public function destroy(Supplier $supplier): RedirectResponse
     {
-        Supplier::destroy($supplier->getKey());
+        if ($supplier->products()->exists()) {
+            return back()->with('error', 'Supplier tidak dapat dihapus karena masih memiliki produk.');
+        }
+
+        if ($supplier->purchaseOrders()->exists()) {
+            return back()->with('error', 'Supplier tidak dapat dihapus karena masih memiliki purchase order.');
+        }
+
+        $supplier->delete();
 
         return redirect()->route('admin.suppliers.index')->with('success', 'Supplier berhasil dihapus.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validateSupplier(Request $request): array
+    {
+        return $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'address' => ['nullable', 'string', 'max:2000'],
+        ]);
     }
 }

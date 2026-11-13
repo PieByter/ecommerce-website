@@ -12,16 +12,17 @@ class DashboardStats extends Component
 {
     public function render(): View
     {
-        $paidStatuses = ['confirmed', 'processing', 'shipped', 'delivered'];
-
         $stats = [
-            'totalCustomers' => User::query()->where('role', 'customer')->count(),
+            'totalCustomers' => User::query()->where('role', User::ROLE_CUSTOMER)->count(),
             'totalProducts' => Product::query()->count(),
             'totalOrders' => Order::query()->count(),
-            'pendingOrders' => Order::query()->where('status', 'pending')->count(),
+            'pendingOrders' => Order::query()->where('status', Order::STATUS_PENDING)->count(),
             'totalRevenue' => (float) Order::query()
-                ->whereIn('status', $paidStatuses)
-                ->sum('total_price'),
+                ->whereIn('status', Order::PAID_STATUSES)
+                ->sum('total_price')
+                + (float) Order::query()
+                    ->whereIn('status', Order::PAID_STATUSES)
+                    ->sum('shipping_cost'),
         ];
 
         return view('livewire.admin.dashboard-stats', compact('stats'));

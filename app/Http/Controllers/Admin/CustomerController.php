@@ -7,14 +7,14 @@ use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class CustomerController extends Controller
 {
     public function index(Request $request): View
     {
         $customers = User::query()
-            ->where('role', 'customer')
+            ->where('role', User::ROLE_CUSTOMER)
             ->withCount('orders')
             ->when($request->filled('search'), function ($query) use ($request): void {
                 $search = $request->string('search');
@@ -33,31 +33,25 @@ class CustomerController extends Controller
 
     public function edit(User $customer): View
     {
-        if ($customer->role !== 'customer') {
-            abort(404);
-        }
+        abort_unless($customer->isCustomer(), 404);
 
         return view('admin.customers.edit', compact('customer'));
     }
 
     public function update(Request $request, User $customer): RedirectResponse
     {
-        if ($customer->role !== 'customer') {
-            abort(404);
-        }
+        abort_unless($customer->isCustomer(), 404);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$customer->id],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($customer->getKey())],
             'phone' => ['nullable', 'string', 'max:20'],
-            'address' => ['nullable', 'string', 'max:500'],
+            'address' => ['nullable', 'string', 'max:2000'],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ]);
 
-        if (empty($validated['password'])) {
+        if (blank($validated['password'] ?? null)) {
             unset($validated['password']);
-        } else {
-            $validated['password'] = Hash::make($validated['password']);
         }
 
         $customer->update($validated);

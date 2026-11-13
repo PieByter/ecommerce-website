@@ -51,7 +51,7 @@
             <li class="nav-item">
                 <a href="{{ route('admin.categories.index') }}"
                     class="nav-link {{ request()->routeIs('admin.categories.*') ? 'active' : '' }}">
-                    <i class="bi bi-tag"></i> Category
+                    <i class="bi bi-tag"></i> Kategori
                 </a>
             </li>
             <li class="nav-item">
@@ -63,13 +63,13 @@
             <li class="nav-item">
                 <a href="{{ route('admin.products.index') }}"
                     class="nav-link {{ request()->routeIs('admin.products.*') ? 'active' : '' }}">
-                    <i class="bi bi-box-seam"></i> Product
+                    <i class="bi bi-box-seam"></i> Produk
                 </a>
             </li>
             <li class="nav-item">
                 <a href="{{ route('admin.customers.index') }}"
                     class="nav-link {{ request()->routeIs('admin.customers.*') ? 'active' : '' }}">
-                    <i class="bi bi-people"></i> Customer
+                    <i class="bi bi-people"></i> Pelanggan
                 </a>
             </li>
         </ul>
@@ -80,7 +80,7 @@
             <li class="nav-item">
                 <a href="{{ route('admin.orders.index') }}"
                     class="nav-link {{ request()->routeIs('admin.orders.*') ? 'active' : '' }}">
-                    <i class="bi bi-receipt"></i> Sale Order
+                    <i class="bi bi-receipt"></i> Pesanan Penjualan
                 </a>
             </li>
             <li class="nav-item">
@@ -97,7 +97,7 @@
             <li class="nav-item">
                 <a href="{{ route('admin.users.index') }}"
                     class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
-                    <i class="bi bi-people"></i> Admin Data
+                    <i class="bi bi-people"></i> Data Admin
                 </a>
             </li>
         </ul>
@@ -155,17 +155,29 @@
         </div>
 
         {{-- ─── Flash Messages ─── --}}
-        <div class="flash-container">
+        <div class="flash-container" aria-live="polite">
             @if (session('success'))
                 <div class="alert alert-success alert-dismissible shadow fade show" role="alert">
                     <i class="bi bi-check-circle-fill me-2"></i> {{ session('success') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
                 </div>
             @endif
             @if (session('error'))
                 <div class="alert alert-danger alert-dismissible shadow fade show" role="alert">
                     <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ session('error') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
+                </div>
+            @endif
+            @if ($errors->any())
+                <div class="alert alert-danger alert-dismissible shadow fade show" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <strong>Periksa kembali data yang diisi.</strong>
+                    <ul class="mb-0 mt-2 ps-3">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
                 </div>
             @endif
         </div>

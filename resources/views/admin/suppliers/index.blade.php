@@ -12,7 +12,7 @@
     </div>
 
     <x-admin-table
-        :columns="['No', 'Nama', 'Telepon', 'Alamat', 'Aksi']"
+        :columns="['No', 'Nama', 'Telepon', 'Alamat', 'Produk', 'PO', 'Aksi']"
         search-route="admin.suppliers.index"
         search-placeholder="Cari supplier..."
     >
@@ -22,6 +22,8 @@
                 <td>{{ $supplier->name }}</td>
                 <td>{{ $supplier->phone ?: '-' }}</td>
                 <td class="text-start">{{ $supplier->address ?: '-' }}</td>
+                <td><span class="badge text-bg-light border">{{ $supplier->products_count }}</span></td>
+                <td><span class="badge text-bg-light border">{{ $supplier->purchase_orders_count }}</span></td>
                 <td>
                     <div class="d-flex gap-2 justify-content-center">
                         <a href="{{ route('admin.suppliers.edit', $supplier) }}"
@@ -40,7 +42,7 @@
                 </td>
             </tr>
         @empty
-            <x-table-empty-row :colspan="5" message="Belum ada supplier." />
+            <x-table-empty-row :colspan="7" message="Belum ada supplier." />
         @endforelse
     </x-admin-table>
 

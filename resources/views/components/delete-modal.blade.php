@@ -40,6 +40,10 @@
         const nameTarget   = document.getElementById('{{ $nameTargetId }}');
         const confirmBtn   = document.getElementById('{{ $confirmBtnId }}');
 
+        if (!deleteModal || !deleteForm || !nameTarget || !confirmBtn) {
+            return;
+        }
+
         deleteModal.addEventListener('show.bs.modal', function (event) {
             const trigger   = event.relatedTarget;
             const deleteUrl = trigger?.getAttribute('data-delete-url') ?? '';

@@ -18,6 +18,11 @@
                 @if ($searchRoute)
                     <div class="col-md-4">
                         <form method="GET" action="{{ route($searchRoute) }}" class="d-flex gap-2">
+                            @foreach (collect(request()->query())->except([$searchName, 'page']) as $queryKey => $queryValue)
+                                @if (is_scalar($queryValue) && $queryValue !== '')
+                                    <input type="hidden" name="{{ $queryKey }}" value="{{ $queryValue }}">
+                                @endif
+                            @endforeach
                             <div class="input-group input-group-sm">
                                 <span class="input-group-text bg-transparent border-end-0">
                                     <i class="bi bi-search text-muted"></i>

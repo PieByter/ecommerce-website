@@ -5,13 +5,7 @@
 
 @section('content')
     @php
-        $statuses = ['draft', 'ordered', 'received', 'cancelled'];
-        $statusClasses = [
-            'draft'     => 'text-secondary-emphasis bg-secondary-subtle',
-            'ordered'   => 'text-primary-emphasis bg-primary-subtle',
-            'received'  => 'text-success-emphasis bg-success-subtle',
-            'cancelled' => 'text-danger-emphasis bg-danger-subtle',
-        ];
+        $statuses = \App\Models\PurchaseOrder::STATUSES;
     @endphp
 
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -38,7 +32,7 @@
                     <option value="">Semua Status</option>
                     @foreach ($statuses as $status)
                         <option value="{{ $status }}" @selected(request('status') === $status)>
-                            {{ ucfirst($status) }}
+                            {{ \App\Models\PurchaseOrder::labelFor($status) }}
                         </option>
                     @endforeach
                 </select>
@@ -53,8 +47,8 @@
                 <td>{{ optional($purchaseOrder->order_date)->format('d M Y') }}</td>
                 <td>Rp {{ number_format((float) $purchaseOrder->total_cost, 0, ',', '.') }}</td>
                 <td>
-                    <span class="badge {{ $statusClasses[$purchaseOrder->status] ?? 'text-bg-secondary' }}">
-                        {{ ucfirst($purchaseOrder->status) }}
+                    <span class="badge {{ $purchaseOrder->status_badge_class }}">
+                        {{ $purchaseOrder->status_label }}
                     </span>
                 </td>
                 <td>{{ (int) $purchaseOrder->items_count }}</td>

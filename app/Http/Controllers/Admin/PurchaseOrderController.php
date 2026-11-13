@@ -10,6 +10,7 @@ use App\Services\PurchaseOrderService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -19,7 +20,9 @@ class PurchaseOrderController extends Controller
 
     public function index(Request $request): View
     {
-        $statusFilter = $request->filled('status') ? $request->string('status')->toString() : null;
+        $statusFilter = $request->filled('status') && in_array($request->string('status')->toString(), PurchaseOrder::STATUSES, true)
+            ? $request->string('status')->toString()
+            : null;
         $search = $request->string('search')->toString() ?: null;
         $purchaseOrders = $this->purchaseOrderService->getPurchaseOrdersPaginated($statusFilter, $search);
 
@@ -44,18 +47,18 @@ class PurchaseOrderController extends Controller
             'supplier_id' => ['required', 'exists:suppliers,id'],
             'order_date' => ['required', 'date'],
             'expected_date' => ['nullable', 'date', 'after_or_equal:order_date'],
-            'status' => ['required', 'in:draft,ordered'],
-            'notes' => ['nullable', 'string'],
+            'status' => ['required', Rule::in([PurchaseOrder::STATUS_DRAFT, PurchaseOrder::STATUS_ORDERED])],
+            'notes' => ['nullable', 'string', 'max:2000'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.product_id' => ['required', 'integer', 'distinct', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.unit_cost' => ['required', 'numeric', 'min:0'],
         ]);
 
         try {
             $purchaseOrder = $this->purchaseOrderService->createPurchaseOrder($validated);
-        } catch (ValidationException $e) {
-            return back()->withInput()->withErrors($e->errors());
+        } catch (ValidationException $exception) {
+            return back()->withInput()->withErrors($exception->errors());
         }
 
         return redirect()
@@ -67,26 +70,26 @@ class PurchaseOrderController extends Controller
     {
         $purchaseOrder->load(['supplier', 'items.product']);
 
-        return view('admin.purchase-orders.show', compact('purchaseOrder'));
-    }
+        $nextStatuses = array_values(array_unique(array_merge(
+            [$purchaseOrder->status],
+            $purchaseOrder->allowedTransitions(),
+        )));
 
-    public function edit(PurchaseOrder $purchaseOrder): RedirectResponse
-    {
-        return redirect()->route('admin.purchase-orders.show', $purchaseOrder);
+        return view('admin.purchase-orders.show', compact('purchaseOrder', 'nextStatuses'));
     }
 
     public function update(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse
     {
         $validated = $request->validate([
-            'status' => ['required', 'in:draft,ordered,received,cancelled'],
-            'expected_date' => ['nullable', 'date'],
-            'notes' => ['nullable', 'string'],
+            'status' => ['required', Rule::in(PurchaseOrder::STATUSES)],
+            'expected_date' => ['nullable', 'date', 'after_or_equal:'.$purchaseOrder->order_date->toDateString()],
+            'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
         try {
             $this->purchaseOrderService->updatePurchaseOrderStatus($purchaseOrder, $validated);
-        } catch (RuntimeException $e) {
-            return back()->with('error', $e->getMessage());
+        } catch (RuntimeException $exception) {
+            return back()->withInput()->with('error', $exception->getMessage());
         }
 
         return back()->with('success', 'Purchase order berhasil diperbarui.');
@@ -96,8 +99,8 @@ class PurchaseOrderController extends Controller
     {
         try {
             $this->purchaseOrderService->deletePurchaseOrder($purchaseOrder);
-        } catch (RuntimeException $e) {
-            return back()->with('error', $e->getMessage());
+        } catch (RuntimeException $exception) {
+            return back()->with('error', $exception->getMessage());
         }
 
         return redirect()->route('admin.purchase-orders.index')->with('success', 'Purchase order berhasil dihapus.');

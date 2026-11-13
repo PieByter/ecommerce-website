@@ -4,26 +4,32 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\OrderService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use RuntimeException;
 
 class OrderController extends Controller
 {
+    public function __construct(private readonly OrderService $orderService) {}
+
     public function index(Request $request): View
     {
         $orders = Order::query()
             ->with('user')
-            ->when($request->filled('status'), function ($query) use ($request): void {
-                $query->where('status', $request->string('status'));
-            })
+            ->when(
+                $request->filled('status') && in_array($request->string('status')->toString(), Order::STATUSES, true),
+                fn ($query) => $query->where('status', $request->string('status')->toString()),
+            )
             ->when($request->filled('search'), function ($query) use ($request): void {
                 $search = $request->string('search');
                 $query->where(function ($q) use ($search): void {
                     $q->where('order_number', 'like', "%{$search}%")
                         ->orWhereHas('user', function ($uq) use ($search): void {
-                            $uq->where('name', 'like', "%{$search}%");
+                            $uq->where('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
                         });
                 });
             })
@@ -38,42 +44,38 @@ class OrderController extends Controller
     {
         $order->load(['user', 'items.product']);
 
-        return view('admin.orders.show', compact('order'));
+        $nextStatuses = array_values(array_unique(array_merge([$order->status], $order->allowedTransitions())));
+
+        return view('admin.orders.show', compact('order', 'nextStatuses'));
     }
 
     public function update(Request $request, Order $order): RedirectResponse
     {
         $validated = $request->validate([
-            'status' => ['required', 'in:pending,confirmed,processing,shipped,delivered,cancelled'],
+            'status' => ['required', Rule::in(Order::STATUSES)],
             'courier' => ['nullable', 'string', 'max:255'],
             'courier_service' => ['nullable', 'string', 'max:255'],
-            'tracking_number' => ['nullable', 'string', 'max:255'],
+            'tracking_number' => [
+                'nullable',
+                'string',
+                'max:255',
+                Rule::requiredIf($request->input('status') === Order::STATUS_SHIPPED),
+            ],
+            'shipping_cost' => ['nullable', 'numeric', 'min:0'],
+        ], [
+            'tracking_number.required' => 'Nomor resi wajib diisi ketika pesanan dikirim.',
         ]);
 
-        $shouldRestoreStock = $order->status !== 'cancelled' && $validated['status'] === 'cancelled';
+        $validated['shipping_cost'] = (float) ($validated['shipping_cost'] ?? $order->shipping_cost);
 
-        if ($shouldRestoreStock) {
-            DB::transaction(function () use ($order, $validated): void {
-                $lockedOrder = Order::query()
-                    ->whereKey($order->id)
-                    ->with('items.product')
-                    ->lockForUpdate()
-                    ->firstOrFail();
-
-                if ($lockedOrder->status !== 'cancelled') {
-                    foreach ($lockedOrder->items as $item) {
-                        if ($item->product) {
-                            $item->product->increment('stock', (int) $item->quantity);
-                        }
-                    }
-                }
-
-                $lockedOrder->update($validated);
-            });
-        } else {
-            $order->update($validated);
+        try {
+            $this->orderService->updateStatus($order, $validated);
+        } catch (RuntimeException $exception) {
+            return back()->withInput()->with('error', $exception->getMessage());
         }
 
-        return redirect()->route('admin.orders.show', $order)->with('success', 'Status pesanan berhasil diperbarui.');
+        return redirect()
+            ->route('admin.orders.show', $order)
+            ->with('success', 'Status pesanan berhasil diperbarui.');
     }
 }

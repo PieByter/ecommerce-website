@@ -37,18 +37,9 @@
             <tr class="text-center">
                 <td>{{ $products->firstItem() + $loop->index }}</td>
                 <td>
-                    @php
-                        $rawImage = trim((string) $product->image);
-                        $imageUrl =
-                            $rawImage === ''
-                                ? 'https://placehold.co/200x200?text=No+Image'
-                                : (str_starts_with($rawImage, 'http://') || str_starts_with($rawImage, 'https://')
-                                    ? $rawImage
-                                    : asset($rawImage));
-                    @endphp
-                    <img src="{{ $imageUrl }}" alt="{{ $product->name }}"
+                    <img src="{{ $product->image_url }}" alt="{{ $product->name }}"
                         style="width: 64px; height: 64px; object-fit: cover; border-radius: 8px;" loading="lazy"
-                        onerror="this.onerror=null;this.src='https://placehold.co/200x200?text=No+Image';">
+                        onerror="this.onerror=null;this.src='{{ asset('images/placeholder.svg') }}';">
                 </td>
                 <td class="text-start">{{ $product->name }}</td>
                 <td>{{ $product->category?->name }}</td>

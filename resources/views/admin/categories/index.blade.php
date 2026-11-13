@@ -11,11 +11,20 @@
         </a>
     </div>
 
-    <x-admin-table :columns="['No', 'Nama', 'Slug', 'Aksi']" search-route="admin.categories.index" search-placeholder="Cari kategori...">
+    <x-admin-table :columns="['No', 'Nama', 'Induk', 'Urutan', 'Produk', 'Subkategori', 'Slug', 'Aksi']"
+        search-route="admin.categories.index" search-placeholder="Cari kategori...">
         @forelse($categories as $category)
             <tr class="text-center">
                 <td>{{ $categories->firstItem() + $loop->index }}</td>
-                <td>{{ $category->name }}</td>
+                <td class="text-start">{{ $category->name }}</td>
+                <td>{{ $category->parent?->name ?? '-' }}</td>
+                <td>{{ $category->sort_order }}</td>
+                <td>
+                    <span class="badge text-bg-light border">{{ $category->products_count }}</span>
+                </td>
+                <td>
+                    <span class="badge text-bg-light border">{{ $category->children_count }}</span>
+                </td>
                 <td><code>{{ $category->slug }}</code></td>
                 <td>
                     <div class="d-flex gap-2 justify-content-center">
@@ -34,7 +43,7 @@
                 </td>
             </tr>
         @empty
-            <x-table-empty-row :colspan="4" message="Belum ada kategori." />
+            <x-table-empty-row :colspan="8" message="Belum ada kategori." />
         @endforelse
     </x-admin-table>
 

@@ -4,18 +4,6 @@
 @section('page_title', 'Dashboard Admin')
 
 @section('content')
-
-    @php
-        $statuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
-        $statusClasses = [
-            'pending' => 'text-warning-emphasis bg-warning-subtle',
-            'confirmed' => 'text-primary-emphasis bg-primary-subtle',
-            'processing' => 'text-info-emphasis bg-info-subtle',
-            'shipped' => 'text-secondary-emphasis bg-secondary-subtle',
-            'delivered' => 'text-success-emphasis bg-success-subtle',
-            'cancelled' => 'text-danger-emphasis bg-danger-subtle',
-        ];
-    @endphp
     <div class="page-header">
         <h1>Ringkasan Toko</h1>
     </div>
@@ -46,16 +34,16 @@
                                 <td>{{ $loop->iteration }}</td>
                                 <td><a href="{{ route('admin.orders.show', $order) }}">{{ $order->order_number }}</a></td>
                                 <td>{{ $order->user?->name ?? '-' }}</td>
-                                <td><span class="badge {{ $statusClasses[$order->status] ?? 'text-bg-secondary' }}">
-                                        {{ ucfirst($order->status) }}
+                                <td><span class="badge {{ $order->status_badge_class }}">
+                                        {{ $order->status_label }}
                                     </span>
                                 </td>
-                                <td>Rp {{ number_format((float) $order->total_price, 0, ',', '.') }}</td>
+                                <td>Rp {{ number_format($order->grand_total, 0, ',', '.') }}</td>
                                 <td>{{ $order->created_at?->format('d M Y H:i') }}</td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="text-center py-4 text-muted">Belum ada data pesanan.</td>
+                                <td colspan="6" class="text-center py-4 text-muted">Belum ada data pesanan.</td>
                             </tr>
                         @endforelse
                     </tbody>

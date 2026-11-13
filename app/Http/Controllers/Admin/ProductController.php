@@ -9,6 +9,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use RuntimeException;
 
 class ProductController extends Controller
 {
@@ -29,7 +30,7 @@ class ProductController extends Controller
         $data = $this->productService->getCategoriesAndSuppliers();
 
         return view('admin.products.create', [
-            'categories' => $data['categories'],
+            'categoryOptions' => $data['categoryOptions'],
             'suppliers' => $data['suppliers'],
         ]);
     }
@@ -55,7 +56,7 @@ class ProductController extends Controller
             'supplier_ids' => ['nullable', 'array'],
             'supplier_ids.*' => ['integer', 'exists:suppliers,id'],
             'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'description' => ['nullable', 'string', 'max:5000'],
             'price' => ['required', 'numeric', 'min:0'],
             'stock' => ['required', 'integer', 'min:0'],
             'weight' => ['nullable', 'numeric', 'min:0'],
@@ -66,10 +67,10 @@ class ProductController extends Controller
 
         try {
             $this->productService->storeProduct($validated, $uploadedImage);
-        } catch (\RuntimeException $exception) {
+        } catch (RuntimeException $exception) {
             return back()
                 ->withInput()
-                ->withErrors(['image_file' => $exception->getMessage()]);
+                ->with('error', $exception->getMessage());
         }
 
         return redirect()->route('admin.products.index')->with('success', 'Produk berhasil ditambahkan.');
@@ -82,7 +83,7 @@ class ProductController extends Controller
 
         return view('admin.products.edit', [
             'product' => $product,
-            'categories' => $data['categories'],
+            'categoryOptions' => $data['categoryOptions'],
             'suppliers' => $data['suppliers'],
         ]);
     }
@@ -91,14 +92,25 @@ class ProductController extends Controller
     {
         $uploadedImage = $request->file('image_file');
 
-        if ($request->files->has('image_file') && (! $uploadedImage instanceof UploadedFile || ! $uploadedImage->isValid())) {
+        if ($uploadedImage instanceof UploadedFile && $uploadedImage->getError() === UPLOAD_ERR_NO_FILE) {
+            $request->files->remove('image_file');
+            $uploadedImage = null;
+        }
+
+        if (
+            $uploadedImage instanceof UploadedFile
+            && ! $uploadedImage->isValid()
+            && $uploadedImage->getError() !== UPLOAD_ERR_NO_FILE
+        ) {
             return back()
                 ->withInput()
-                ->withErrors([
-                    'image_file' => $uploadedImage instanceof UploadedFile
-                        ? $this->productService->resolveUploadErrorMessage($uploadedImage)
-                        : 'File gambar tidak valid. Silakan pilih ulang file gambar.',
-                ]);
+                ->withErrors(['image_file' => $this->productService->resolveUploadErrorMessage($uploadedImage)]);
+        }
+
+        if ($request->files->has('image_file') && ! $uploadedImage instanceof UploadedFile) {
+            return back()
+                ->withInput()
+                ->withErrors(['image_file' => 'File gambar tidak valid. Silakan pilih ulang file gambar.']);
         }
 
         $validated = $request->validate([
@@ -106,7 +118,7 @@ class ProductController extends Controller
             'supplier_ids' => ['nullable', 'array'],
             'supplier_ids.*' => ['integer', 'exists:suppliers,id'],
             'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'description' => ['nullable', 'string', 'max:5000'],
             'price' => ['required', 'numeric', 'min:0'],
             'stock' => ['required', 'integer', 'min:0'],
             'weight' => ['nullable', 'numeric', 'min:0'],
@@ -117,10 +129,10 @@ class ProductController extends Controller
 
         try {
             $this->productService->updateProduct($product, $validated, $uploadedImage);
-        } catch (\RuntimeException $exception) {
+        } catch (RuntimeException $exception) {
             return back()
                 ->withInput()
-                ->withErrors(['image_file' => $exception->getMessage()]);
+                ->with('error', $exception->getMessage());
         }
 
         return redirect()->route('admin.products.index')->with('success', 'Produk berhasil diperbarui.');
@@ -128,7 +140,11 @@ class ProductController extends Controller
 
     public function destroy(Product $product): RedirectResponse
     {
-        $this->productService->deleteProduct($product);
+        try {
+            $this->productService->deleteProduct($product);
+        } catch (RuntimeException $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
 
         return redirect()->route('admin.products.index')->with('success', 'Produk berhasil dihapus.');
     }
