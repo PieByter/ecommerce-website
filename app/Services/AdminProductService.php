@@ -8,10 +8,12 @@ use App\Models\Supplier;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Throwable;
 
 class AdminProductService
 {
@@ -38,8 +40,8 @@ class AdminProductService
     public function getCategoriesAndSuppliers(): array
     {
         return [
-            'categories' => Category::all()->sortBy('name')->values(),
-            'suppliers' => Supplier::all()->sortBy('name')->values(),
+            'categoryOptions' => Category::treeOptions(),
+            'suppliers' => Supplier::query()->orderBy('name')->get(),
         ];
     }
 
@@ -48,35 +50,35 @@ class AdminProductService
      */
     public function storeProduct(array $validated, UploadedFile $uploadedImage): Product
     {
+        $imagePath = $this->storeImageFile($uploadedImage);
+
         try {
-            $imagePath = $this->storeImageFile($uploadedImage);
-        } catch (\Throwable $throwable) {
-            Log::error('Product image upload failed during store.', [
+            return DB::transaction(function () use ($validated, $imagePath): Product {
+                $product = Product::query()->create([
+                    'category_id' => $validated['category_id'],
+                    'name' => $validated['name'],
+                    'description' => $validated['description'] ?? null,
+                    'price' => $validated['price'],
+                    'stock' => $validated['stock'],
+                    'weight' => $validated['weight'] ?? 0,
+                    'image' => $imagePath,
+                    'is_active' => (bool) $validated['is_active'],
+                    'slug' => $this->generateUniqueSlug($validated['name']),
+                ]);
+
+                $product->suppliers()->sync($this->normalizeSupplierIds($validated));
+
+                return $product;
+            });
+        } catch (Throwable $throwable) {
+            $this->deleteStoredImageFile($imagePath);
+
+            Log::error('Product creation failed.', [
                 'message' => $throwable->getMessage(),
             ]);
-            throw new RuntimeException('Upload gambar gagal. Coba gunakan file JPG/PNG berukuran maksimal 1MB.');
+
+            throw new RuntimeException('Produk gagal disimpan. Silakan coba lagi.');
         }
-
-        $productPayload = [
-            'category_id' => $validated['category_id'],
-            'name' => $validated['name'],
-            'description' => $validated['description'] ?? null,
-            'price' => $validated['price'],
-            'stock' => $validated['stock'],
-            'weight' => $validated['weight'] ?? 0,
-            'image' => $imagePath,
-            'is_active' => $validated['is_active'],
-            'slug' => Str::slug($validated['name']) . '-' . Str::random(5),
-        ];
-
-        $product = Product::query()->create($productPayload);
-        $supplierIds = $this->normalizeSupplierIds($validated);
-
-        if ($supplierIds !== []) {
-            $product->suppliers()->sync($supplierIds);
-        }
-
-        return $product;
     }
 
     /**
@@ -84,46 +86,78 @@ class AdminProductService
      */
     public function updateProduct(Product $product, array $validated, ?UploadedFile $uploadedImage): void
     {
-        $imagePath = $product->image;
-        $shouldDeleteOldImage = false;
+        $newImagePath = null;
 
         if ($uploadedImage instanceof UploadedFile) {
-            try {
-                $imagePath = $this->storeImageFile($uploadedImage);
-                $shouldDeleteOldImage = true;
-            } catch (\Throwable $throwable) {
-                Log::error('Product image upload failed during update.', [
-                    'product_id' => $product->id,
-                    'message' => $throwable->getMessage(),
-                ]);
-                throw new RuntimeException('Upload gambar gagal. Coba gunakan file JPG/PNG berukuran maksimal 1MB.');
-            }
+            $newImagePath = $this->storeImageFile($uploadedImage);
         }
 
-        $productPayload = [
-            'category_id' => $validated['category_id'],
-            'name' => $validated['name'],
-            'description' => $validated['description'] ?? null,
-            'price' => $validated['price'],
-            'stock' => $validated['stock'],
-            'weight' => $validated['weight'] ?? 0,
-            'image' => $imagePath,
-            'is_active' => $validated['is_active'],
-            'slug' => Str::slug($validated['name']) . '-' . $product->id,
-        ];
+        $oldImagePath = $product->image;
 
-        $product->update($productPayload);
-        $product->suppliers()->sync($this->normalizeSupplierIds($validated));
+        try {
+            DB::transaction(function () use ($product, $validated, $newImagePath): void {
+                $payload = [
+                    'category_id' => $validated['category_id'],
+                    'name' => $validated['name'],
+                    'description' => $validated['description'] ?? null,
+                    'price' => $validated['price'],
+                    'stock' => $validated['stock'],
+                    'weight' => $validated['weight'] ?? 0,
+                    'is_active' => (bool) $validated['is_active'],
+                ];
 
-        if ($shouldDeleteOldImage) {
-            $this->deleteStoredImageFile($product->getOriginal('image'));
+                if ($newImagePath !== null) {
+                    $payload['image'] = $newImagePath;
+                }
+
+                $product->update($payload);
+                $product->suppliers()->sync($this->normalizeSupplierIds($validated));
+            });
+        } catch (Throwable $throwable) {
+            if ($newImagePath !== null) {
+                $this->deleteStoredImageFile($newImagePath);
+            }
+
+            Log::error('Product update failed.', [
+                'product_id' => $product->getKey(),
+                'message' => $throwable->getMessage(),
+            ]);
+
+            throw new RuntimeException('Produk gagal diperbarui. Silakan coba lagi.');
+        }
+
+        if ($newImagePath !== null) {
+            $this->deleteStoredImageFile($oldImagePath);
         }
     }
 
+    /**
+     * @throws RuntimeException
+     */
     public function deleteProduct(Product $product): void
     {
-        $this->deleteStoredImageFile($product->image);
-        Product::destroy($product->getKey());
+        if ($product->orderItems()->exists()) {
+            throw new RuntimeException('Produk tidak dapat dihapus karena sudah digunakan pada pesanan.');
+        }
+
+        if ($product->purchaseOrderItems()->exists()) {
+            throw new RuntimeException('Produk tidak dapat dihapus karena sudah digunakan pada purchase order.');
+        }
+
+        $imagePath = $product->image;
+
+        try {
+            DB::transaction(fn (): ?bool => $product->delete());
+        } catch (Throwable $throwable) {
+            Log::error('Product deletion failed.', [
+                'product_id' => $product->getKey(),
+                'message' => $throwable->getMessage(),
+            ]);
+
+            throw new RuntimeException('Produk gagal dihapus karena masih digunakan pada data lain.');
+        }
+
+        $this->deleteStoredImageFile($imagePath);
     }
 
     public function resolveUploadErrorMessage(UploadedFile $file): string
@@ -139,57 +173,58 @@ class AdminProductService
         };
     }
 
+    /**
+     * @throws RuntimeException
+     */
     private function storeImageFile(UploadedFile $file): string
     {
-        $path = $file->store('images', 'public');
+        $path = $file->store('products', 'public');
 
-        if (! $path) {
-            throw new RuntimeException('Unable to store image file.');
+        if (! is_string($path) || $path === '') {
+            throw new RuntimeException('Upload gambar gagal. Coba gunakan file JPG/PNG berukuran maksimal 1MB.');
         }
 
-        return 'storage/' . $path;
+        return $path;
     }
 
     private function deleteStoredImageFile(?string $imagePath): void
     {
-        if (! is_string($imagePath) || $imagePath === '') {
+        $path = trim((string) $imagePath);
+
+        if ($path === '') {
             return;
         }
 
-        if (str_starts_with($imagePath, 'storage/')) {
-            $relativePath = substr($imagePath, 8);
-            if (Storage::disk('public')->exists($relativePath)) {
-                Storage::disk('public')->delete($relativePath);
-            }
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            $path = (string) parse_url($path, PHP_URL_PATH);
+        }
 
+        if (str_contains($path, '/storage/')) {
+            $path = Str::after($path, '/storage/');
+        } elseif (str_starts_with($path, 'storage/')) {
+            $path = substr($path, 8);
+        }
+
+        $path = ltrim($path, '/');
+
+        if ($path === '' || str_contains($path, '..')) {
             return;
         }
 
-        $path = parse_url($imagePath, PHP_URL_PATH);
-        if (! is_string($path)) {
-            return;
+        if (Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
         }
 
-        $relativePath = null;
+        $legacyPath = realpath(public_path($path));
+        $publicRoot = realpath(public_path());
 
-        if (str_contains($path, '/uploads/products/')) {
-            $relativePath = ltrim(Str::after($path, '/uploads/products/'), '/');
-            $baseDirectory = 'uploads/products';
-        } elseif (str_contains($path, '/products/')) {
-            $relativePath = ltrim(Str::after($path, '/products/'), '/');
-            $baseDirectory = 'products';
-        } else {
-            return;
-        }
-
-        if (! is_string($relativePath) || $relativePath === '') {
-            return;
-        }
-
-        $fullPath = public_path($baseDirectory . '/' . $relativePath);
-
-        if (is_file($fullPath)) {
-            @unlink($fullPath);
+        if (
+            is_string($legacyPath)
+            && is_string($publicRoot)
+            && is_file($legacyPath)
+            && str_starts_with($legacyPath, $publicRoot.DIRECTORY_SEPARATOR)
+        ) {
+            @unlink($legacyPath);
         }
     }
 
@@ -199,13 +234,22 @@ class AdminProductService
      */
     private function normalizeSupplierIds(array $validated): array
     {
-        $supplierIds = Arr::wrap($validated['supplier_ids'] ?? []);
-
-        return collect($supplierIds)
-            ->map(fn($id): int => (int) $id)
+        return collect(Arr::wrap($validated['supplier_ids'] ?? []))
+            ->map(fn ($id): int => (int) $id)
             ->filter()
             ->unique()
             ->values()
             ->all();
+    }
+
+    private function generateUniqueSlug(string $name): string
+    {
+        $base = Str::slug($name) ?: 'produk';
+
+        do {
+            $slug = $base.'-'.Str::lower(Str::random(6));
+        } while (Product::query()->where('slug', $slug)->exists());
+
+        return $slug;
     }
 }

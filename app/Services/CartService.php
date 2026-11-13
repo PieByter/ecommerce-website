@@ -16,6 +16,9 @@ class CartService
         return $user->carts()->with('product')->latest()->get();
     }
 
+    /**
+     * @return array{status: string, message: string}
+     */
     public function addItem(User $user, Product $product, int $quantity = 1): array
     {
         if (! $this->isProductAvailable($product)) {
@@ -30,20 +33,46 @@ class CartService
             'product_id' => $product->id,
         ]);
 
-        $this->setAndSaveQuantity($cartItem, ((int) ($cartItem->quantity ?? 0)) + $quantity, (int) $product->stock);
+        $requestedQuantity = max(0, (int) ($cartItem->quantity ?? 0)) + max(1, $quantity);
+        $wasLimited = $this->setAndSaveQuantity($cartItem, $requestedQuantity, (int) $product->stock);
 
         return [
             'status' => 'success',
-            'message' => 'Produk berhasil ditambahkan ke keranjang.',
+            'message' => $wasLimited
+                ? 'Produk ditambahkan sesuai batas stok yang tersedia.'
+                : 'Produk berhasil ditambahkan ke keranjang.',
         ];
     }
 
-    public function updateItemQuantity(Cart $cartItem, int $requestedQuantity): void
+    /**
+     * @return array{status: string, message?: string}
+     */
+    public function updateItemQuantity(Cart $cartItem, int $requestedQuantity): array
     {
-        $stock = (int) ($cartItem->product?->stock ?? $requestedQuantity);
-        $this->setAndSaveQuantity($cartItem, $requestedQuantity, $stock);
+        $product = $cartItem->product;
+
+        if (! $product instanceof Product || ! $product->is_active) {
+            return [
+                'status' => 'error',
+                'message' => 'Produk sudah tidak tersedia. Silakan hapus item ini dari keranjang.',
+            ];
+        }
+
+        if ($product->stock <= 0) {
+            return [
+                'status' => 'error',
+                'message' => 'Stok produk sedang kosong. Silakan hapus item ini dari keranjang.',
+            ];
+        }
+
+        $this->setAndSaveQuantity($cartItem, $requestedQuantity, (int) $product->stock);
+
+        return ['status' => 'success'];
     }
 
+    /**
+     * @return array{status: string, message?: string}
+     */
     public function adjustQuantity(User $user, Product $product, string $action, int $requestedQuantity = 0): array
     {
         $cartItem = Cart::query()->firstOrNew([
@@ -75,15 +104,23 @@ class CartService
         return $product->is_active && $product->stock > 0;
     }
 
-    private function setAndSaveQuantity(Cart $cartItem, int $requestedQuantity, int $stock): void
+    /**
+     * @return bool Whether the requested quantity was capped by available stock.
+     */
+    private function setAndSaveQuantity(Cart $cartItem, int $requestedQuantity, int $stock): bool
     {
         $maxQuantity = max(1, $stock);
-        $nextQuantity = min($requestedQuantity, $maxQuantity);
+        $nextQuantity = max(1, min($requestedQuantity, $maxQuantity));
 
-        $cartItem->quantity = max(1, $nextQuantity);
+        $cartItem->quantity = $nextQuantity;
         $cartItem->save();
+
+        return $nextQuantity < $requestedQuantity;
     }
 
+    /**
+     * @return array{status: string, message?: string}
+     */
     private function handleSetAction(Cart $cartItem, Product $product, int $requestedQuantity, int $productStock): array
     {
         if ($requestedQuantity <= 0) {
@@ -101,11 +138,16 @@ class CartService
             ];
         }
 
-        $this->setAndSaveQuantity($cartItem, $requestedQuantity, $productStock);
+        $wasLimited = $this->setAndSaveQuantity($cartItem, $requestedQuantity, $productStock);
 
-        return ['status' => 'success'];
+        return $wasLimited
+            ? ['status' => 'success', 'message' => 'Jumlah disesuaikan dengan stok yang tersedia.']
+            : ['status' => 'success'];
     }
 
+    /**
+     * @return array{status: string, message?: string}
+     */
     private function handleIncrementAction(Cart $cartItem, Product $product, int $currentQuantity, int $productStock): array
     {
         if (! $this->isProductAvailable($product)) {
@@ -115,11 +157,16 @@ class CartService
             ];
         }
 
-        $this->setAndSaveQuantity($cartItem, $currentQuantity + 1, $productStock);
+        $wasLimited = $this->setAndSaveQuantity($cartItem, $currentQuantity + 1, $productStock);
 
-        return ['status' => 'success'];
+        return $wasLimited
+            ? ['status' => 'success', 'message' => 'Jumlah sudah mencapai batas stok.']
+            : ['status' => 'success'];
     }
 
+    /**
+     * @return array{status: string, message?: string}
+     */
     private function handleDecrementAction(Cart $cartItem, int $currentQuantity): array
     {
         if ($currentQuantity <= 1) {

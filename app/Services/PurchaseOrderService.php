@@ -39,7 +39,7 @@ class PurchaseOrderService
     {
         $supplierId = (int) $validated['supplier_id'];
         $requestedItems = collect($validated['items'])
-            ->filter(fn(array $item): bool => (int) ($item['quantity'] ?? 0) > 0)
+            ->filter(fn (array $item): bool => (int) ($item['quantity'] ?? 0) > 0)
             ->values();
 
         if ($requestedItems->isEmpty()) {
@@ -48,7 +48,14 @@ class PurchaseOrderService
             ]);
         }
 
-        $productIds = $requestedItems->pluck('product_id')->map(fn($id): int => (int) $id)->unique()->values();
+        $productIds = $requestedItems->pluck('product_id')->map(fn ($id): int => (int) $id)->unique()->values();
+
+        if ($productIds->count() !== $requestedItems->count()) {
+            throw ValidationException::withMessages([
+                'items' => 'Produk yang sama tidak boleh dipilih lebih dari sekali dalam satu PO.',
+            ]);
+        }
+
         $products = Product::query()
             ->findMany($productIds->all())
             ->keyBy('id');
@@ -57,13 +64,13 @@ class PurchaseOrderService
             ->where('supplier_id', $supplierId)
             ->whereIntegerInRaw('product_id', $productIds->all())
             ->pluck('product_id')
-            ->map(fn($id): int => (int) $id)
+            ->map(fn ($id): int => (int) $id)
             ->all();
 
         foreach ($productIds as $productId) {
             $product = $products->get($productId);
 
-            if (! $product || ! in_array($productId, $validSupplierProductIds, true)) {
+            if (! $product instanceof Product || ! in_array($productId, $validSupplierProductIds, true)) {
                 throw ValidationException::withMessages([
                     'items' => 'Semua produk PO harus berasal dari supplier yang dipilih.',
                 ]);
@@ -81,9 +88,10 @@ class PurchaseOrderService
                 'total_cost' => 0,
             ]);
 
-            $totalCost = 0;
+            $totalCost = 0.0;
 
             foreach ($requestedItems as $item) {
+                /** @var Product $product */
                 $product = $products->get((int) $item['product_id']);
                 $quantity = (int) $item['quantity'];
                 $unitCost = (float) $item['unit_cost'];
@@ -111,14 +119,18 @@ class PurchaseOrderService
      */
     public function updatePurchaseOrderStatus(PurchaseOrder $purchaseOrder, array $validated): void
     {
-        $nextStatus = $validated['status'];
+        $nextStatus = (string) $validated['status'];
 
-        if ($purchaseOrder->status === 'received' && $nextStatus !== 'received') {
-            throw new RuntimeException('Status PO yang sudah received tidak dapat diubah.');
+        if ($nextStatus === PurchaseOrder::STATUS_RECEIVED) {
+            throw new RuntimeException('Gunakan tombol Terima Barang agar stok otomatis bertambah.');
         }
 
-        if ($purchaseOrder->status !== 'received' && $nextStatus === 'received') {
-            throw new RuntimeException('Gunakan tombol Terima Barang agar stok otomatis bertambah.');
+        if (! $purchaseOrder->canTransitionTo($nextStatus)) {
+            throw new RuntimeException(sprintf(
+                'Status PO tidak dapat diubah dari %s ke %s.',
+                $purchaseOrder->status_label,
+                PurchaseOrder::labelFor($nextStatus),
+            ));
         }
 
         $purchaseOrder->update($validated);
@@ -129,7 +141,7 @@ class PurchaseOrderService
      */
     public function deletePurchaseOrder(PurchaseOrder $purchaseOrder): void
     {
-        if ($purchaseOrder->status === 'received') {
+        if (! $purchaseOrder->canBeDeleted()) {
             throw new RuntimeException('PO yang sudah diterima tidak dapat dihapus.');
         }
 
@@ -143,29 +155,32 @@ class PurchaseOrderService
     {
         DB::transaction(function () use ($purchaseOrder): void {
             $lockedPo = PurchaseOrder::query()
-                ->whereKey($purchaseOrder->id)
+                ->whereKey($purchaseOrder->getKey())
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($lockedPo->status === 'received') {
+            if ($lockedPo->status === PurchaseOrder::STATUS_RECEIVED) {
                 throw new RuntimeException('PO ini sudah pernah diterima sebelumnya.');
             }
 
-            if ($lockedPo->status === 'cancelled') {
-                throw new RuntimeException('PO berstatus cancelled tidak dapat diterima.');
+            if ($lockedPo->status !== PurchaseOrder::STATUS_ORDERED) {
+                throw new RuntimeException('Hanya PO berstatus Dipesan yang dapat diterima.');
             }
 
             $lockedPo->load('items');
 
+            if ($lockedPo->items->isEmpty()) {
+                throw new RuntimeException('PO tidak memiliki item untuk diterima.');
+            }
+
             foreach ($lockedPo->items as $item) {
                 Product::query()
                     ->whereKey($item->product_id)
-                    ->lockForUpdate()
                     ->increment('stock', (int) $item->quantity);
             }
 
             $lockedPo->update([
-                'status' => 'received',
+                'status' => PurchaseOrder::STATUS_RECEIVED,
                 'received_at' => now(),
             ]);
         });
@@ -173,21 +188,20 @@ class PurchaseOrderService
 
     private function generatePoNumber(): string
     {
-        $dateCode = now()->format('Ymd');
-        $prefix = 'PO-' . $dateCode . '-';
+        $prefix = 'PO-'.now()->format('Ymd').'-';
 
         $lastPoToday = PurchaseOrder::query()
-            ->where('po_number', 'like', $prefix . '%')
-            ->latest('id')
+            ->where('po_number', 'like', $prefix.'%')
+            ->orderByDesc('id')
+            ->lockForUpdate()
             ->value('po_number');
 
         $nextSequence = 1;
 
         if (is_string($lastPoToday) && str_starts_with($lastPoToday, $prefix)) {
-            $lastSequence = (int) substr($lastPoToday, -4);
-            $nextSequence = $lastSequence + 1;
+            $nextSequence = (int) substr($lastPoToday, -4) + 1;
         }
 
-        return $prefix . str_pad((string) $nextSequence, 4, '0', STR_PAD_LEFT);
+        return $prefix.str_pad((string) $nextSequence, 4, '0', STR_PAD_LEFT);
     }
 }

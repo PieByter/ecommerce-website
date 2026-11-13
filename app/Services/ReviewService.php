@@ -16,7 +16,8 @@ class ReviewService
             ->with('product')
             ->where('user_id', $user->id)
             ->latest()
-            ->paginate(12);
+            ->paginate(12)
+            ->withQueryString();
     }
 
     /**

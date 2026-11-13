@@ -11,21 +11,29 @@ class CustomerProductService
 {
     public function getProductsData(?int $categoryId, ?string $searchQuery, ?User $user): array
     {
+        $selectedCategory = $categoryId
+            ? Category::query()->find($categoryId)
+            : null;
+
+        $categoryIds = $selectedCategory
+            ? array_merge([(int) $selectedCategory->id], $selectedCategory->descendantIds())
+            : [];
+
         $products = Product::query()
             ->with('category')
             ->withAvg('reviews as avg_rating', 'rating')
             ->where('is_active', true)
             ->when($searchQuery, function ($query) use ($searchQuery): void {
-                $query->where('name', 'like', '%' . $searchQuery . '%');
+                $query->where('name', 'like', '%'.$searchQuery.'%');
             })
-            ->when($categoryId, function ($query) use ($categoryId): void {
-                $query->where('category_id', $categoryId);
+            ->when($categoryIds !== [], function ($query) use ($categoryIds): void {
+                $query->whereIn('category_id', $categoryIds);
             })
             ->latest()
             ->paginate(10)
             ->withQueryString();
 
-        $categories = Category::query()->orderBy('name')->get();
+        $categories = Category::query()->ordered()->get();
 
         $cartQuantities = [];
 
@@ -41,7 +49,7 @@ class CustomerProductService
             'products' => $products,
             'categories' => $categories,
             'cartQuantities' => $cartQuantities,
-            'selectedCategoryId' => $categoryId,
+            'selectedCategoryId' => $selectedCategory?->id,
         ];
     }
 

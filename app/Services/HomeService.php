@@ -10,18 +10,26 @@ class HomeService
 {
     public function getHomeData(?int $selectedCategoryId, ?int $userId): array
     {
+        $selectedCategory = $selectedCategoryId
+            ? Category::query()->find($selectedCategoryId)
+            : null;
+
+        $categoryIds = $selectedCategory
+            ? array_merge([(int) $selectedCategory->id], $selectedCategory->descendantIds())
+            : [];
+
         $featuredProducts = Product::query()
             ->with('category')
             ->withAvg('reviews as avg_rating', 'rating')
             ->where('is_active', true)
-            ->when($selectedCategoryId, function ($query) use ($selectedCategoryId): void {
-                $query->where('category_id', $selectedCategoryId);
+            ->when($categoryIds !== [], function ($query) use ($categoryIds): void {
+                $query->whereIn('category_id', $categoryIds);
             })
             ->latest()
             ->take(8)
             ->get();
 
-        $categories = Category::query()->orderBy('name')->get();
+        $categories = Category::query()->ordered()->get();
 
         $cartQuantities = [];
 
@@ -37,6 +45,7 @@ class HomeService
             'featuredProducts' => $featuredProducts,
             'categories' => $categories,
             'cartQuantities' => $cartQuantities,
+            'selectedCategoryId' => $selectedCategory?->id,
         ];
     }
 }
