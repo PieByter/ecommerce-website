@@ -1,6 +1,6 @@
 @extends('layouts.auth')
 
-@section('title', 'Reset Password')
+@section('title', 'Lupa Password')
 
 @section('content')
     <h1 class="h4 fw-bold mb-4 text-center">Reset Password</h1>
@@ -11,19 +11,15 @@
         </div>
     @endif
 
+    <p class="text-muted">Masukkan email akun Anda. Kami akan mengirimkan link untuk membuat password baru.</p>
+
     <form method="POST" action="{{ route('password.email') }}">
         @csrf
 
-        <div class="mb-3">
-            <label for="email" class="form-label">Email Address</label>
-            <input id="email" type="email" class="form-control @error('email') is-invalid @enderror" name="email"
-                value="{{ old('email') }}" required autocomplete="email" autofocus>
-            @error('email')
-                <div class="invalid-feedback">{{ $message }}</div>
-            @enderror
-        </div>
+        <x-auth-input id="email" name="email" label="Email" type="email" autocomplete="email" :required="true"
+            :autofocus="true" :error="$errors->first('email')" />
 
-        <button type="submit" class="btn btn-auth w-100">Send Password Reset Link</button>
+        <button type="submit" class="btn btn-auth w-100">Kirim Link Reset Password</button>
     </form>
 
     <p class="text-center mt-3 mb-0">

@@ -1,28 +1,33 @@
-@extends('layouts.app')
+@extends('layouts.auth')
+
+@section('title', 'Verifikasi Email')
 
 @section('content')
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">{{ __('Verify Your Email Address') }}</div>
+    <h1 class="h4 fw-bold mb-3 text-center">Verifikasi Email</h1>
 
-                <div class="card-body">
-                    @if (session('resent'))
-                        <div class="alert alert-success" role="alert">
-                            {{ __('A fresh verification link has been sent to your email address.') }}
-                        </div>
-                    @endif
-
-                    {{ __('Before proceeding, please check your email for a verification link.') }}
-                    {{ __('If you did not receive the email') }},
-                    <form class="d-inline" method="POST" action="{{ route('verification.resend') }}">
-                        @csrf
-                        <button type="submit" class="btn btn-link p-0 m-0 align-baseline">{{ __('click here to request another') }}</button>.
-                    </form>
-                </div>
-            </div>
+    @if (session('resent'))
+        <div class="alert alert-success" role="alert">
+            Link verifikasi baru telah dikirim ke email Anda.
         </div>
-    </div>
-</div>
+    @endif
+
+    <p class="text-muted">
+        Sebelum melanjutkan, periksa email Anda untuk menemukan link verifikasi.
+        Jika Anda belum menerima email tersebut,
+    </p>
+
+    <form class="d-inline" method="POST" action="{{ route('verification.resend') }}">
+        @csrf
+        <button type="submit" class="btn btn-auth w-100">Kirim Ulang Link Verifikasi</button>
+    </form>
+
+    <p class="text-center mt-3 mb-0">
+        <a href="{{ route('logout') }}" class="auth-link"
+            onclick="event.preventDefault(); document.getElementById('logout-form-verify').submit();">
+            Keluar
+        </a>
+    </p>
+    <form id="logout-form-verify" method="POST" action="{{ route('logout') }}" class="d-none">
+        @csrf
+    </form>
 @endsection
