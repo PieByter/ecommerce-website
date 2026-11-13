@@ -20,6 +20,7 @@ class OrderItem extends Model
     ];
 
     protected $casts = [
+        'quantity' => 'integer',
         'price' => 'decimal:2',
     ];
 

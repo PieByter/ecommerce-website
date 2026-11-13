@@ -18,8 +18,6 @@ class UserFactory extends Factory
     protected static ?string $password;
 
     /**
-     * Define the model's default state.
-     *
      * @return array<string, mixed>
      */
     public function definition(): array
@@ -30,9 +28,24 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            'role' => User::ROLE_CUSTOMER,
             'phone' => $this->faker->phoneNumber(),
             'address' => $this->faker->address(),
         ];
+    }
+
+    public function admin(): static
+    {
+        return $this->state(fn (): array => [
+            'role' => User::ROLE_ADMIN,
+        ]);
+    }
+
+    public function customer(): static
+    {
+        return $this->state(fn (): array => [
+            'role' => User::ROLE_CUSTOMER,
+        ]);
     }
 
     /**
@@ -40,7 +53,7 @@ class UserFactory extends Factory
      */
     public function unverified(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn (): array => [
             'email_verified_at' => null,
         ]);
     }

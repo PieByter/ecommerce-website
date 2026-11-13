@@ -13,6 +13,10 @@ class Cart extends Model
 
     protected $fillable = ['user_id', 'product_id', 'quantity'];
 
+    protected $casts = [
+        'quantity' => 'integer',
+    ];
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

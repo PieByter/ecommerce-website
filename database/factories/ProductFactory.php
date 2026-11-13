@@ -13,15 +13,15 @@ use Illuminate\Support\Str;
  */
 class ProductFactory extends Factory
 {
+    protected $model = Product::class;
+
     /**
-     * Define the model's default state.
-     *
      * @return array<string, mixed>
      */
     public function definition(): array
     {
         $name = Str::title($this->faker->words(3, true));
-        $categoryId = Category::query()->inRandomOrder()->first()?->id
+        $categoryId = Category::query()->whereNotNull('parent_id')->inRandomOrder()->value('id')
             ?? Category::query()->firstOrCreate(
                 ['slug' => 'lain-lain'],
                 ['name' => 'Lain-lain', 'parent_id' => null, 'sort_order' => 999],
@@ -35,7 +35,7 @@ class ProductFactory extends Factory
             'price' => $this->faker->randomFloat(2, 10000, 5000000),
             'stock' => $this->faker->numberBetween(0, 250),
             'weight' => $this->faker->randomFloat(2, 50, 5000),
-            'image' => $this->faker->imageUrl(800, 800, 'transport', true),
+            'image' => null,
             'is_active' => $this->faker->boolean(90),
         ];
     }
@@ -43,12 +43,16 @@ class ProductFactory extends Factory
     public function configure(): static
     {
         return $this->afterCreating(function (Product $product): void {
-            if ($product->id && $product->exists) {
-                $supplier = Supplier::factory()->createOne();
-                if ($supplier->id) {
-                    $product->suppliers()->attach($supplier->id);
-                }
+            $supplierIds = Supplier::query()
+                ->inRandomOrder()
+                ->limit(2)
+                ->pluck('id');
+
+            if ($supplierIds->isEmpty()) {
+                $supplierIds = Supplier::factory(2)->create()->pluck('id');
             }
+
+            $product->suppliers()->syncWithoutDetaching($supplierIds);
         });
     }
 }
