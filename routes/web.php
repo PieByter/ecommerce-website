@@ -11,12 +11,12 @@ use App\Http\Controllers\Admin\SupplierController as AdminSupplierController;
 use App\Http\Controllers\Customer\CartController;
 use App\Http\Controllers\Customer\CheckoutController;
 use App\Http\Controllers\Customer\HomeController as CustomerHomeController;
+use App\Http\Controllers\Customer\NotificationController as CustomerNotificationController;
 use App\Http\Controllers\Customer\OrderController as CustomerOrderController;
 use App\Http\Controllers\Customer\ProductController as CustomerProductController;
 use App\Http\Controllers\Customer\ProfileController;
 use App\Http\Controllers\Customer\ReviewController as CustomerReviewController;
 use App\Http\Controllers\HomeController;
-use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -26,19 +26,25 @@ Route::get('password/email', function () {
     return redirect()->route('password.request');
 })->name('password.email.get');
 
-Route::get('/', function () {
-    if (! Auth::check()) {
-        return redirect()->route('login');
-    }
+/*
+|--------------------------------------------------------------------------
+| Public storefront
+|--------------------------------------------------------------------------
+*/
+Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('shop', [CustomerHomeController::class, 'index'])->name('customer.home');
+Route::get('products', [CustomerProductController::class, 'index'])->name('products.index');
+Route::get('products/{product:slug}', [CustomerProductController::class, 'show'])->name('products.show');
 
-    /** @var User $user */
-    $user = Auth::user();
+Route::get('home', function () {
+    return redirect()->route('home');
+})->name('legacy.home');
 
-    return $user->isAdmin()
-        ? redirect()->route('admin.dashboard')
-        : redirect()->route('customer.home');
-})->name('home');
-
+/*
+|--------------------------------------------------------------------------
+| Admin panel
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth', 'verified', 'role:admin'])
     ->prefix('admin')
     ->name('admin.')
@@ -54,39 +60,34 @@ Route::middleware(['auth', 'verified', 'role:admin'])
         Route::resource('users', AdminUserController::class)->only(['index', 'edit', 'update']);
     });
 
+/*
+|--------------------------------------------------------------------------
+| Customer area
+|--------------------------------------------------------------------------
+*/
 Route::middleware(['auth', 'verified', 'role:customer'])->group(function (): void {
-    Route::get('shop', [CustomerHomeController::class, 'index'])->name('customer.home');
-    Route::get('products', [CustomerProductController::class, 'index'])->name('products.index');
-    Route::get('products/{product:slug}', [CustomerProductController::class, 'show'])->name('products.show');
     Route::post('products/{product:slug}/reviews', [CustomerReviewController::class, 'store'])->name('products.reviews.store');
+
     Route::get('cart', [CartController::class, 'index'])->name('cart.index');
     Route::post('cart/{product}', [CartController::class, 'store'])->name('cart.store');
     Route::post('cart/{product}/adjust', [CartController::class, 'adjust'])->name('cart.adjust');
     Route::patch('cart/{cart}', [CartController::class, 'update'])->name('cart.update');
     Route::delete('cart/{cart}', [CartController::class, 'destroy'])->name('cart.destroy');
+
     Route::get('checkout', [CheckoutController::class, 'index'])->name('checkout.index');
     Route::post('checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+
     Route::get('orders', [CustomerOrderController::class, 'index'])->name('customer.orders.index');
+    Route::get('orders/{order}', [CustomerOrderController::class, 'show'])->name('customer.orders.show');
     Route::patch('orders/{order}/cancel', [CustomerOrderController::class, 'cancel'])->name('customer.orders.cancel');
+    Route::post('orders/{order}/payment-proof', [CustomerOrderController::class, 'uploadPaymentProof'])->name('customer.orders.payment-proof');
+
     Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('profile', [ProfileController::class, 'update'])->name('profile.update');
+
     Route::get('reviews', [CustomerReviewController::class, 'index'])->name('customer.reviews.index');
-    Route::get('notifications', function () {
-        /** @var User $user */
-        $user = Auth::user();
-
-        $orders = $user
-            ->orders()
-            ->whereIn('status', ['confirmed', 'shipped', 'delivered'])
-            ->latest()
-            ->take(10)
-            ->get();
-
-        return view('customer.notifications', compact('orders'));
-    })->name('customer.notifications.index');
+    Route::get('notifications', [CustomerNotificationController::class, 'index'])->name('customer.notifications.index');
 });
-
-Route::middleware('auth')->get('/home', [HomeController::class, 'index'])->name('legacy.home');
 
 if (file_exists(__DIR__.'/settings.php')) {
     require __DIR__.'/settings.php';

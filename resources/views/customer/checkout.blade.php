@@ -97,11 +97,20 @@
                         </div>
                         <div class="d-flex justify-content-between mb-2">
                             <span>Ongkir</span>
-                            <span>Rp {{ number_format((float) $shippingCost, 0, ',', '.') }}</span>
+                            <span>
+                                @if ((float) $shippingCost > 0)
+                                    Rp {{ number_format((float) $shippingCost, 0, ',', '.') }}
+                                @else
+                                    Gratis
+                                @endif
+                            </span>
                         </div>
                         <div class="d-flex justify-content-between fw-bold text-danger">
                             <span>Total</span>
                             <span>Rp {{ number_format((float) $grandTotal, 0, ',', '.') }}</span>
+                        </div>
+                        <div class="small text-muted mt-3">
+                            Setelah pesanan dibuat, unggah bukti pembayaran pada halaman detail pesanan.
                         </div>
                     </div>
                 </div>

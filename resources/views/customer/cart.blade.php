@@ -6,12 +6,24 @@
     <div class="container">
         <h1 class="h5 fw-semibold mb-3">Keranjang Belanja</h1>
 
-        @if (session('success'))
-            <div class="alert alert-success">{{ session('success') }}</div>
-        @endif
-
         @if ($errors->has('cart'))
             <div class="alert alert-danger">{{ $errors->first('cart') }}</div>
+        @endif
+
+        @php
+            $hasUnavailableItems = $cartItems->contains(function ($item): bool {
+                return ! $item->product
+                    || ! $item->product->is_active
+                    || $item->product->stock < $item->quantity;
+            });
+            $grandTotal = 0;
+        @endphp
+
+        @if ($hasUnavailableItems)
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                Ada produk yang sudah tidak tersedia atau melebihi stok. Hapus/sesuaikan item tersebut sebelum checkout.
+            </div>
         @endif
 
         <div class="card border-0 shadow-sm">
@@ -29,69 +41,74 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @php $grandTotal = 0; @endphp
                         @forelse($cartItems as $item)
                             @php
-                                $subtotal = (float) ($item->product?->price ?? 0) * (int) $item->quantity;
+                                $product = $item->product;
+                                $subtotal = (float) ($product?->price ?? 0) * (int) $item->quantity;
                                 $grandTotal += $subtotal;
-                                $stockLimit = max(1, (int) ($item->product?->stock ?? 1));
-                                $rawImage = trim((string) ($item->product?->image ?? ''));
-                                $imageUrl =
-                                    $rawImage === ''
-                                        ? 'https://placehold.co/200x200?text=No+Image'
-                                        : (str_starts_with($rawImage, 'http://') ||
-                                        str_starts_with($rawImage, 'https://')
-                                            ? $rawImage
-                                            : asset($rawImage));
+                                $isInactive = ! $product || ! $product->is_active;
+                                $isOverStock = $product && $product->stock < $item->quantity;
+                                $isUnavailable = $isInactive || $isOverStock || ($product && $product->stock <= 0);
+                                $stockLimit = max(1, (int) ($product?->stock ?? 1));
                             @endphp
                             <tr>
                                 <td>{{ $loop->iteration }}</td>
                                 <td>
-                                    @if ($item->product)
-                                        <a href="{{ route('products.show', $item->product->slug) }}"
-                                            class="text-decoration-none" aria-label="Lihat detail produk">
-                                            <img src="{{ $imageUrl }}" alt="{{ $item->product->name }}"
+                                    @if ($product)
+                                        <a href="{{ route('products.show', $product->slug) }}" class="text-decoration-none"
+                                            aria-label="Lihat detail produk">
+                                            <img src="{{ $product->image_url }}" alt="{{ $product->name }}"
                                                 style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px;"
                                                 loading="lazy"
-                                                onerror="this.onerror=null;this.src='https://placehold.co/200x200?text=No+Image';">
+                                                onerror="this.onerror=null;this.src='{{ asset('images/placeholder.svg') }}';">
                                         </a>
                                     @else
-                                        <img src="{{ $imageUrl }}" alt="Produk"
+                                        <img src="{{ asset('images/placeholder.svg') }}" alt="Produk tidak tersedia"
                                             style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px;"
-                                            loading="lazy"
-                                            onerror="this.onerror=null;this.src='https://placehold.co/200x200?text=No+Image';">
+                                            loading="lazy">
                                     @endif
                                 </td>
                                 <td>
-                                    @if ($item->product)
-                                        <a href="{{ route('products.show', $item->product->slug) }}"
+                                    @if ($product)
+                                        <a href="{{ route('products.show', $product->slug) }}"
                                             class="text-decoration-none text-dark fw-semibold">
-                                            {{ $item->product->name }}
+                                            {{ $product->name }}
                                         </a>
+                                        @if ($isInactive)
+                                            <div class="small text-danger">Produk tidak aktif</div>
+                                        @elseif ($isOverStock)
+                                            <div class="small text-danger">Melebihi stok tersedia ({{ $product->stock }})</div>
+                                        @elseif ($product->stock <= 0)
+                                            <div class="small text-danger">Stok habis</div>
+                                        @endif
                                     @else
                                         Produk tidak tersedia
                                     @endif
                                 </td>
-                                <td>Rp {{ number_format((float) ($item->product?->price ?? 0), 0, ',', '.') }}</td>
+                                <td>Rp {{ number_format((float) ($product?->price ?? 0), 0, ',', '.') }}</td>
                                 <td>
-                                    <div class="d-inline-flex align-items-center gap-2 js-qty-control" data-min="1"
-                                        data-max="{{ $stockLimit }}">
-                                        <button type="button"
-                                            class="btn btn-sm btn-outline-secondary js-qty-dec">-</button>
-                                        <input type="number" class="form-control form-control-sm text-center js-qty-input"
-                                            value="{{ $item->quantity }}" min="1" max="{{ $stockLimit }}"
-                                            style="width:72px;">
-                                        <button type="button"
-                                            class="btn btn-sm btn-outline-secondary js-qty-inc">+</button>
-                                    </div>
+                                    @if (! $isUnavailable)
+                                        <div class="d-inline-flex align-items-center gap-2 js-qty-control" data-min="1"
+                                            data-max="{{ $stockLimit }}">
+                                            <button type="button"
+                                                class="btn btn-sm btn-outline-secondary js-qty-dec">-</button>
+                                            <input type="number" class="form-control form-control-sm text-center js-qty-input"
+                                                value="{{ $item->quantity }}" min="1" max="{{ $stockLimit }}"
+                                                style="width:72px;">
+                                            <button type="button"
+                                                class="btn btn-sm btn-outline-secondary js-qty-inc">+</button>
+                                        </div>
 
-                                    <form method="POST" action="{{ route('cart.update', $item) }}"
-                                        class="d-none js-qty-form">
-                                        @csrf
-                                        @method('PATCH')
-                                        <input type="hidden" name="quantity" value="{{ $item->quantity }}"
-                                            class="js-qty-hidden">
-                                    </form>
+                                        <form method="POST" action="{{ route('cart.update', $item) }}"
+                                            class="d-none js-qty-form">
+                                            @csrf
+                                            @method('PATCH')
+                                            <input type="hidden" name="quantity" value="{{ $item->quantity }}"
+                                                class="js-qty-hidden">
+                                        </form>
+                                    @else
+                                        <span class="text-muted">{{ $item->quantity }} item</span>
+                                    @endif
                                 </td>
                                 <td>Rp {{ number_format($subtotal, 0, ',', '.') }}</td>
                                 <td>
@@ -117,50 +134,13 @@
 
             @if ($cartItems->isNotEmpty())
                 <div class="card-footer bg-white border-top-0 text-end">
-                    <a href="{{ route('checkout.index') }}" class="btn btn-danger">Lanjut Checkout</a>
+                    @if ($hasUnavailableItems)
+                        <button type="button" class="btn btn-danger" disabled>Lanjut Checkout</button>
+                    @else
+                        <a href="{{ route('checkout.index') }}" class="btn btn-danger">Lanjut Checkout</a>
+                    @endif
                 </div>
             @endif
         </div>
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const controls = document.querySelectorAll('.js-qty-control');
-
-            controls.forEach(function(control) {
-                const container = control.closest('td');
-                const input = control.querySelector('.js-qty-input');
-                const decButton = control.querySelector('.js-qty-dec');
-                const incButton = control.querySelector('.js-qty-inc');
-                const form = container?.querySelector('.js-qty-form');
-                const hiddenInput = container?.querySelector('.js-qty-hidden');
-
-                if (!input || !decButton || !incButton || !form || !hiddenInput) {
-                    return;
-                }
-
-                const min = Number(control.getAttribute('data-min') || '1');
-                const max = Number(control.getAttribute('data-max') || '999999');
-
-                const submitQuantity = function(nextValue) {
-                    const clampedValue = Math.max(min, Math.min(max, Number(nextValue || min)));
-                    input.value = String(clampedValue);
-                    hiddenInput.value = String(clampedValue);
-                    form.submit();
-                };
-
-                decButton.addEventListener('click', function() {
-                    submitQuantity(Number(input.value) - 1);
-                });
-
-                incButton.addEventListener('click', function() {
-                    submitQuantity(Number(input.value) + 1);
-                });
-
-                input.addEventListener('change', function() {
-                    submitQuantity(Number(input.value));
-                });
-            });
-        });
-    </script>
 @endsection

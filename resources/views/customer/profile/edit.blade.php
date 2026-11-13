@@ -9,11 +9,9 @@
                 <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                     <div class="card-header bg-white fw-semibold py-3 px-4">Profil Saya</div>
                     <div class="card-body">
-                        @php($user = auth()->user())
-
-                        {{-- @if (session('success'))
-                            <div class="alert alert-success">{{ session('success') }}</div>
-                        @endif --}}
+                        @php
+                            $user = auth()->user();
+                        @endphp
 
                         <form method="POST" action="{{ route('profile.update') }}" class="row g-3">
                             @csrf

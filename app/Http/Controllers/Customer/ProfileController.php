@@ -16,12 +16,6 @@ class ProfileController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
-        $user = $request->user();
-
-        if (! $user) {
-            return redirect()->route('login');
-        }
-
         $validated = $request->validate([
             'phone' => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:2000'],
@@ -33,11 +27,11 @@ class ProfileController extends Controller
             'address' => $validated['address'] ?? null,
         ];
 
-        if (! empty($validated['password'])) {
+        if (filled($validated['password'] ?? null)) {
             $payload['password'] = $validated['password'];
         }
 
-        $user->update($payload);
+        $request->user()->update($payload);
 
         return redirect()->route('profile.edit')->with('success', 'Profil berhasil diperbarui.');
     }

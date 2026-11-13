@@ -2,34 +2,41 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
+use App\Services\HomeService;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 
 class HomeController extends Controller
 {
-    /**
-     * Create a new controller instance.
-     *
-     * @return void
-     */
-    public function __construct()
-    {
-        $this->middleware('auth');
-    }
+    public function __construct(private readonly HomeService $homeService) {}
 
     /**
-     * Redirect authenticated users to their role dashboard.
+     * Show the storefront to guests and route authenticated users to their dashboard.
      */
-    public function index(): RedirectResponse
+    public function index(Request $request): View|RedirectResponse
     {
-        /** @var User $user */
-        $user = Auth::user();
+        $user = $request->user();
 
-        if ($user->isAdmin()) {
+        if ($user?->isAdmin()) {
             return redirect()->route('admin.dashboard');
         }
 
-        return redirect()->route('customer.home');
+        if ($user?->isCustomer()) {
+            return redirect()->route('customer.home');
+        }
+
+        $selectedCategoryId = $request->filled('category')
+            ? (int) $request->input('category')
+            : null;
+
+        $data = $this->homeService->getHomeData($selectedCategoryId, null);
+
+        return view('customer.home', [
+            'featuredProducts' => $data['featuredProducts'],
+            'categories' => $data['categories'],
+            'cartQuantities' => $data['cartQuantities'],
+            'selectedCategoryId' => $data['selectedCategoryId'],
+        ]);
     }
 }

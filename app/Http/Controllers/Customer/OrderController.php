@@ -4,21 +4,21 @@ namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use App\Models\User;
+use App\Services\OrderService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\UploadedFile;
+use RuntimeException;
 
 class OrderController extends Controller
 {
-    public function index(): View
-    {
-        /** @var User $user */
-        $user = Auth::user();
+    public function __construct(private readonly OrderService $orderService) {}
 
-        $orders = $user->orders()
+    public function index(Request $request): View
+    {
+        $orders = $request->user()
+            ->orders()
             ->with(['items.product'])
             ->latest()
             ->paginate(10);
@@ -26,49 +26,54 @@ class OrderController extends Controller
         return view('customer.orders.index', compact('orders'));
     }
 
+    public function show(Request $request, Order $order): View
+    {
+        abort_unless((int) $order->user_id === (int) $request->user()->id, 404);
+
+        $order->load(['items.product']);
+
+        return view('customer.orders.show', compact('order'));
+    }
+
     public function cancel(Request $request, Order $order): RedirectResponse
     {
-        $user = $request->user();
+        abort_unless((int) $order->user_id === (int) $request->user()->id, 404);
 
-        if (! $user instanceof User) {
-            return redirect()->route('login');
-        }
-
-        $cancelled = DB::transaction(function () use ($user, $order): bool {
-            $customerOrder = Order::query()
-                ->whereBelongsTo($user)
-                ->whereKey($order->id)
-                ->with('items.product')
-                ->lockForUpdate()
-                ->first();
-
-            if (! $customerOrder) {
-                abort(404);
-            }
-
-            if ($customerOrder->status !== 'pending') {
-                return false;
-            }
-
-            foreach ($customerOrder->items as $item) {
-                if ($item->product) {
-                    $item->product->increment('stock', (int) $item->quantity);
-                }
-            }
-
-            $customerOrder->update(['status' => 'cancelled']);
-
-            return true;
-        });
-
-        if (! $cancelled) {
+        try {
+            $this->orderService->cancelForCustomer($request->user(), $order);
+        } catch (RuntimeException $exception) {
             return redirect()
-                ->route('customer.orders.index')
-                ->withErrors(['order' => 'Pesanan hanya bisa dibatalkan saat status masih pending.']);
+                ->route('customer.orders.show', $order)
+                ->withErrors(['order' => $exception->getMessage()]);
         }
 
         return redirect()
-            ->route('customer.orders.index')
+            ->route('customer.orders.show', $order)
             ->with('success', 'Pesanan berhasil dibatalkan.');
+    }
+
+    public function uploadPaymentProof(Request $request, Order $order): RedirectResponse
+    {
+        abort_unless((int) $order->user_id === (int) $request->user()->id, 404);
+
+        $validated = $request->validate([
+            'payment_proof' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ]);
+
+        $file = $validated['payment_proof'];
+
+        if (! $file instanceof UploadedFile) {
+            return back()->withErrors(['payment_proof' => 'File bukti pembayaran tidak valid.']);
+        }
+
+        try {
+            $this->orderService->uploadPaymentProof($order, $file);
+        } catch (RuntimeException $exception) {
+            return back()->withErrors(['payment_proof' => $exception->getMessage()]);
+        }
+
+        return redirect()
+            ->route('customer.orders.show', $order)
+            ->with('success', 'Bukti pembayaran berhasil diunggah. Menunggu konfirmasi admin.');
     }
 }

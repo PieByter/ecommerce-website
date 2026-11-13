@@ -8,17 +8,20 @@
         <div class="card border-0 shadow-sm">
             <div class="list-group list-group-flush">
                 @forelse($orders as $order)
-                    <div class="list-group-item py-3">
-                        <div class="d-flex justify-content-between">
+                    <a href="{{ route('customer.orders.show', $order) }}"
+                        class="list-group-item list-group-item-action py-3 text-decoration-none">
+                        <div class="d-flex justify-content-between align-items-start gap-3">
                             <div>
                                 <div class="fw-semibold">Order {{ $order->order_number }}</div>
-                                <div class="small text-muted">Status terbaru: {{ ucfirst($order->status) }}</div>
+                                <div class="small">
+                                    <span class="badge {{ $order->status_badge_class }}">{{ $order->status_label }}</span>
+                                </div>
                             </div>
-                            <span class="small text-muted">{{ $order->updated_at?->diffForHumans() }}</span>
+                            <span class="small text-muted text-nowrap">{{ $order->updated_at?->diffForHumans() }}</span>
                         </div>
-                    </div>
+                    </a>
                 @empty
-                    <div class="list-group-item py-4 text-center text-muted">Belum ada notifikasi baru.</div>
+                    <div class="list-group-item py-4 text-center text-muted">Belum ada notifikasi pesanan.</div>
                 @endforelse
             </div>
         </div>

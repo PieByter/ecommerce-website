@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Services\HomeService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class HomeController extends Controller
 {
@@ -18,15 +17,13 @@ class HomeController extends Controller
             ? (int) $request->input('category')
             : null;
 
-        $userId = Auth::id() ? (int) Auth::id() : null;
-
-        $data = $this->homeService->getHomeData($selectedCategoryId, $userId);
+        $data = $this->homeService->getHomeData($selectedCategoryId, $request->user()?->id);
 
         return view('customer.home', [
             'featuredProducts' => $data['featuredProducts'],
             'categories' => $data['categories'],
             'cartQuantities' => $data['cartQuantities'],
-            'selectedCategoryId' => $selectedCategoryId,
+            'selectedCategoryId' => $data['selectedCategoryId'],
         ]);
     }
 }

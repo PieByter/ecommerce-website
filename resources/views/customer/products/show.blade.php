@@ -5,18 +5,11 @@
 @section('content')
     <div class="container">
         @php
-            $rawImage = trim((string) $product->image);
-            $imageUrl =
-                $rawImage === ''
-                    ? 'https://placehold.co/900x700?text=No+Image'
-                    : (str_starts_with($rawImage, 'http://') || str_starts_with($rawImage, 'https://')
-                        ? $rawImage
-                        : asset($rawImage));
             $soldCount = (int) ($product->total_purchased ?? 0);
-            $averageRating = (float) ($product->avg_rating ?? 0);
-            $averageRatingStars = max(0, min(5, (int) round($averageRating)));
+            $averageRatingStars = max(0, min(5, (int) round((float) ($product->avg_rating ?? 0))));
             $reviewsCount = $product->reviews->count();
-            $isOutOfStock = (int) $product->stock <= 0;
+            $isOutOfStock = $product->isOutOfStock();
+            $cartQuantity = (int) ($cartQuantity ?? 0);
         @endphp
 
         <div class="mb-3">
@@ -27,12 +20,12 @@
             <div class="col-12 col-lg-6">
                 <div class="card border-0 shadow-sm">
                     <div class="position-relative">
-                        <img src="{{ $imageUrl }}" alt="{{ $product->name }}"
+                        <img src="{{ $product->image_url }}" alt="{{ $product->name }}"
                             class="card-img-top {{ $isOutOfStock ? 'opacity-50' : '' }}"
                             style="height: 420px; object-fit: cover;"
-                            onerror="this.onerror=null;this.src='https://placehold.co/900x700?text=No+Image';">
+                            onerror="this.onerror=null;this.src='{{ asset('images/placeholder.svg') }}';">
                         @if ($isOutOfStock)
-                            <div class="position-absolute top-0 inset-s-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                            <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
                                 style="background: rgba(0, 0, 0, 0.35);">
                                 <span class="badge rounded-pill text-bg-danger px-3 py-2">Barang Kosong</span>
                             </div>
@@ -63,30 +56,12 @@
                             </span>
                             <span class="badge text-bg-light border">{{ $reviewsCount }} ulasan</span>
                             <span class="badge text-bg-light border">Di cart:
-                                {{ number_format((int) ($cartQuantity ?? 0), 0, ',', '.') }} item</span>
+                                {{ number_format($cartQuantity, 0, ',', '.') }} item</span>
                         </div>
 
-                        <div class="d-flex align-items-center gap-2 mb-3">
-                            <form method="POST" action="{{ route('cart.adjust', $product) }}" class="m-0">
-                                @csrf
-                                <input type="hidden" name="action" value="decrement">
-                                <button type="submit" class="btn btn-outline-secondary"
-                                    @disabled($cartQuantity <= 0)>-</button>
-                            </form>
-                            <form method="POST" action="{{ route('cart.adjust', $product) }}" class="m-0">
-                                @csrf
-                                <input type="hidden" name="action" value="set">
-                                <label for="cart-quantity" class="visually-hidden">Jumlah di cart</label>
-                                <input id="cart-quantity" type="number" name="quantity" class="form-control text-center"
-                                    value="{{ (int) ($cartQuantity ?? 0) }}" min="0"
-                                    max="{{ (int) $product->stock }}" style="width: 96px;"
-                                    onchange="this.form.requestSubmit()">
-                            </form>
-                            <form method="POST" action="{{ route('cart.adjust', $product) }}" class="m-0">
-                                @csrf
-                                <input type="hidden" name="action" value="increment">
-                                <button type="submit" class="btn btn-danger" @disabled($isOutOfStock)>+</button>
-                            </form>
+                        <div class="mb-3">
+                            <x-cart-controls :product="$product" :cart-quantity="$cartQuantity"
+                                :is-out-of-stock="$isOutOfStock" size="md" />
                         </div>
 
                         <h2 class="h6 fw-semibold mb-2">Deskripsi</h2>

@@ -4,17 +4,6 @@
 
 @section('content')
     <div class="container">
-        @php
-            $statusClasses = [
-                'pending' => 'text-warning-emphasis bg-warning-subtle',
-                'confirmed' => 'text-primary-emphasis bg-primary-subtle',
-                'processing' => 'text-info-emphasis bg-info-subtle',
-                'shipped' => 'text-secondary-emphasis bg-secondary-subtle',
-                'delivered' => 'text-success-emphasis bg-success-subtle',
-                'cancelled' => 'text-danger-emphasis bg-danger-subtle',
-            ];
-        @endphp
-
         <style>
             .customer-orders-table {
                 table-layout: fixed;
@@ -43,12 +32,12 @@
                 <table class="table mb-0 align-middle customer-orders-table">
                     <colgroup>
                         <col style="width: 60px;">
-                        <col style="width: 160px;">
+                        <col style="width: 170px;">
+                        <col style="width: 140px;">
+                        <col style="width: 170px;">
+                        <col style="width: 150px;">
+                        <col style="width: 150px;">
                         <col style="width: 180px;">
-                        <col style="width: 150px;">
-                        <col style="width: 150px;">
-                        <col style="width: 160px;">
-                        <col style="width: 150px;">
                     </colgroup>
                     <thead>
                         <tr>
@@ -68,7 +57,12 @@
                             @endphp
                             <tr>
                                 <td class="text-nowrap">{{ $orders->firstItem() + $loop->index }}</td>
-                                <td class="text-nowrap">{{ $order->order_number }}</td>
+                                <td class="text-nowrap">
+                                    <a href="{{ route('customer.orders.show', $order) }}"
+                                        class="text-decoration-none fw-semibold">
+                                        {{ $order->order_number }}
+                                    </a>
+                                </td>
                                 <td class="pe-2">
                                     @if ($order->items->isNotEmpty())
                                         <button class="btn btn-sm btn-outline-secondary text-nowrap" type="button"
@@ -81,25 +75,27 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <span class="badge {{ $statusClasses[$order->status] ?? 'text-bg-secondary' }}">
-                                        {{ ucfirst($order->status) }}
+                                    <span class="badge {{ $order->status_badge_class }}">
+                                        {{ $order->status_label }}
                                     </span>
                                 </td>
-                                <td>Rp {{ number_format((float) $order->total_price, 0, ',', '.') }}</td>
+                                <td>Rp {{ number_format($order->grand_total, 0, ',', '.') }}</td>
                                 <td>{{ $order->created_at?->format('d M Y H:i') }}</td>
                                 <td>
-                                    @if ($order->status === 'pending')
-                                        <form action="{{ route('customer.orders.cancel', $order) }}" method="POST"
-                                            onsubmit="return confirm('Batalkan pesanan ini?');">
-                                            @csrf
-                                            @method('PATCH')
-                                            <button type="submit" class="btn btn-sm btn-outline-danger text-nowrap">
-                                                Batalkan
-                                            </button>
-                                        </form>
-                                    @else
-                                        <span class="text-muted small">-</span>
-                                    @endif
+                                    <div class="d-flex flex-wrap gap-1">
+                                        <a href="{{ route('customer.orders.show', $order) }}"
+                                            class="btn btn-sm btn-outline-primary text-nowrap">Detail</a>
+                                        @if ($order->canBeCancelledByCustomer())
+                                            <form action="{{ route('customer.orders.cancel', $order) }}" method="POST"
+                                                onsubmit="return confirm('Batalkan pesanan ini?');">
+                                                @csrf
+                                                @method('PATCH')
+                                                <button type="submit" class="btn btn-sm btn-outline-danger text-nowrap">
+                                                    Batalkan
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
                                 </td>
                             </tr>
                             @if ($order->items->isNotEmpty())
@@ -119,25 +115,16 @@
                                                 <tbody>
                                                     @foreach ($order->items as $item)
                                                         @php
-                                                            $rawImage = trim((string) $item->product?->image);
-                                                            $imageUrl =
-                                                                $rawImage === ''
-                                                                    ? 'https://placehold.co/80x80?text=No+Image'
-                                                                    : (str_starts_with($rawImage, 'http://') ||
-                                                                    str_starts_with($rawImage, 'https://')
-                                                                        ? $rawImage
-                                                                        : asset($rawImage));
                                                             $reviewLink = $item->product
-                                                                ? route('products.show', $item->product->slug) .
-                                                                    '#review-form'
+                                                                ? route('products.show', $item->product->slug) . '#review-form'
                                                                 : '#';
                                                         @endphp
                                                         <tr>
                                                             <td>
-                                                                <img src="{{ $imageUrl }}"
+                                                                <img src="{{ $item->product?->image_url ?? asset('images/placeholder.svg') }}"
                                                                     alt="{{ $item->product_name }}"
                                                                     class="rounded border order-item-thumb"
-                                                                    onerror="this.onerror=null;this.src='https://placehold.co/80x80?text=No+Image';">
+                                                                    onerror="this.onerror=null;this.src='{{ asset('images/placeholder.svg') }}';">
                                                             </td>
                                                             <td>
                                                                 <div class="fw-semibold">{{ $item->product_name }}</div>
@@ -150,14 +137,14 @@
                                                             <td>Rp {{ number_format((float) $item->price, 0, ',', '.') }}
                                                             </td>
                                                             <td>
-                                                                @if ($order->status === 'delivered' && $item->product)
+                                                                @if ($order->status === \App\Models\Order::STATUS_DELIVERED && $item->product)
                                                                     <a href="{{ $reviewLink }}"
                                                                         class="btn btn-sm btn-outline-danger">
                                                                         Tulis Review
                                                                     </a>
                                                                 @else
                                                                     <span class="text-muted small">Review setelah
-                                                                        delivered.</span>
+                                                                        selesai.</span>
                                                                 @endif
                                                             </td>
                                                         </tr>

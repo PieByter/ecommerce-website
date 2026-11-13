@@ -59,37 +59,39 @@
                             href="{{ route('products.index') }}">Produk</a>
                     </li>
                     @auth
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('customer.orders.*') ? 'active' : '' }}"
-                                href="{{ route('customer.orders.index') }}">Pesanan Saya</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('customer.reviews.*') ? 'active' : '' }}"
-                                href="{{ route('customer.reviews.index') }}">Review Saya</a>
-                        </li>
+                        @if (auth()->user()->isAdmin())
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('admin.*') ? 'active' : '' }}"
+                                    href="{{ route('admin.dashboard') }}">Dashboard Admin</a>
+                            </li>
+                        @else
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('customer.orders.*') ? 'active' : '' }}"
+                                    href="{{ route('customer.orders.index') }}">Pesanan Saya</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('customer.reviews.*') ? 'active' : '' }}"
+                                    href="{{ route('customer.reviews.index') }}">Review Saya</a>
+                            </li>
+                        @endif
                     @endauth
 
                     {{-- Cart Button --}}
-                    <li class="nav-item">
-                        <a href="{{ route('cart.index') }}" class="btn-cart position-relative ms-2">
-                            <i class="bi bi-cart3 text-danger"></i>
-                            @auth
-                                @php $cartCount = (int) auth()->user()->carts()->sum('quantity'); @endphp
+                    @unless (auth()->check() && auth()->user()->isAdmin())
+                        <li class="nav-item">
+                            <a href="{{ route('cart.index') }}" class="btn-cart position-relative ms-2"
+                                aria-label="Keranjang belanja">
+                                <i class="bi bi-cart3 text-danger"></i>
                                 @if ($cartCount > 0)
                                     <span class="badge rounded-pill cart-badge position-absolute">
                                         {{ $cartCount }}
                                     </span>
                                 @endif
-                            @endauth
-                        </a>
-                    </li>
-
-                    @auth
-                        <li class="nav-item d-lg-none">
-                            <a class="nav-link" href="{{ route('customer.orders.index') }}">
-                                <i class="bi bi-box-seam me-1"></i>Pesanan Saya
                             </a>
                         </li>
+                    @endunless
+
+                    @auth
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle d-flex align-items-center" href="#"
                                 id="userMenuDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false"
@@ -98,16 +100,39 @@
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0"
                                 aria-labelledby="userMenuDropdown">
-                                <li>
-                                    <a class="dropdown-item" href="{{ route('profile.edit') }}">
-                                        <i class="bi bi-person-gear me-2"></i>Edit Profil
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{{ route('customer.reviews.index') }}">
-                                        <i class="bi bi-star me-2"></i>Review Saya
-                                    </a>
-                                </li>
+                                @if (auth()->user()->isAdmin())
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('admin.dashboard') }}">
+                                            <i class="bi bi-speedometer2 me-2"></i>Dashboard Admin
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('admin.users.index') }}">
+                                            <i class="bi bi-person-badge me-2"></i>Data Admin
+                                        </a>
+                                    </li>
+                                @else
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('profile.edit') }}">
+                                            <i class="bi bi-person-gear me-2"></i>Edit Profil
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('customer.orders.index') }}">
+                                            <i class="bi bi-box-seam me-2"></i>Pesanan Saya
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('customer.reviews.index') }}">
+                                            <i class="bi bi-star me-2"></i>Review Saya
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('customer.notifications.index') }}">
+                                            <i class="bi bi-bell me-2"></i>Notifikasi
+                                        </a>
+                                    </li>
+                                @endif
                                 <li>
                                     <hr class="dropdown-divider">
                                 </li>
@@ -143,23 +168,35 @@
     </nav>
 
     {{-- ═══ FLASH MESSAGES ══════════════════════════════════════════════════ --}}
-    <div class="flash-container">
+    <div class="flash-container" aria-live="polite">
         @if (session('success'))
             <div class="alert alert-success alert-dismissible shadow fade show" role="alert">
                 <i class="bi bi-check-circle-fill me-2"></i> {{ session('success') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
             </div>
         @endif
         @if (session('error'))
             <div class="alert alert-danger alert-dismissible shadow fade show" role="alert">
                 <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ session('error') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
             </div>
         @endif
         @if (session('warning'))
             <div class="alert alert-warning alert-dismissible shadow fade show" role="alert">
                 <i class="bi bi-exclamation-circle-fill me-2"></i> {{ session('warning') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
+            </div>
+        @endif
+        @if ($errors->any())
+            <div class="alert alert-danger alert-dismissible shadow fade show" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>Periksa kembali data yang diisi.</strong>
+                <ul class="mb-0 mt-2 ps-3">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
             </div>
         @endif
     </div>
@@ -183,18 +220,18 @@
                 <div class="col-md-2">
                     <h6>Produk</h6>
                     <ul class="list-unstyled small">
-                        <li><a href="#">Mesin</a></li>
-                        <li><a href="#">Rem &amp; Kopling</a></li>
-                        <li><a href="#">Kelistrikan</a></li>
-                        <li><a href="#">Aksesoris</a></li>
+                        <li><a href="{{ route('products.index', ['q' => 'Mesin']) }}">Mesin</a></li>
+                        <li><a href="{{ route('products.index', ['q' => 'Rem']) }}">Rem &amp; Kopling</a></li>
+                        <li><a href="{{ route('products.index', ['q' => 'Kelistrikan']) }}">Kelistrikan</a></li>
+                        <li><a href="{{ route('products.index', ['q' => 'Aksesoris']) }}">Aksesoris</a></li>
                     </ul>
                 </div>
                 <div class="col-md-3">
                     <h6>Layanan</h6>
                     <ul class="list-unstyled small">
                         <li><a href="{{ route('customer.orders.index') }}">Cek Pesanan</a></li>
-                        <li><a href="#">Cara Pembayaran</a></li>
-                        <li><a href="#">Kebijakan Retur</a></li>
+                        <li><a href="{{ route('products.index') }}">Katalog Produk</a></li>
+                        <li><a href="{{ route('profile.edit') }}">Profil Saya</a></li>
                     </ul>
                 </div>
                 <div class="col-md-3">
