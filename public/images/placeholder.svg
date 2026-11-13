@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="450" viewBox="0 0 600 450" role="img" aria-label="Gambar produk tidak tersedia">
+    <rect width="600" height="450" fill="#f1f3f5"/>
+    <g fill="none" stroke="#adb5bd" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="300" cy="190" r="52"/>
+        <path d="M300 138v-24M300 266v-24M352 190h24M224 190h24M337 153l17-17M246 244l17-17M337 227l17 17M246 136l17 17"/>
+    </g>
+    <text x="300" y="330" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#6c757d">No Image</text>
+</svg>

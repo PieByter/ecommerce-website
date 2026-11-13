@@ -26,27 +26,3 @@
         <div class="invalid-feedback d-block">{{ $error }}</div>
     @endif
 </div>
-
-@once
-    <script>
-        document.addEventListener('click', function(event) {
-            const toggleButton = event.target.closest('.js-password-toggle');
-            if (!toggleButton) {
-                return;
-            }
-
-            const inputId = toggleButton.getAttribute('data-password-target');
-            const passwordInput = document.getElementById(inputId);
-            const icon = toggleButton.querySelector('i');
-
-            if (!passwordInput || !icon) {
-                return;
-            }
-
-            const isPassword = passwordInput.type === 'password';
-            passwordInput.type = isPassword ? 'text' : 'password';
-            icon.classList.toggle('bi-eye', !isPassword);
-            icon.classList.toggle('bi-eye-slash', isPassword);
-        });
-    </script>
-@endonce
