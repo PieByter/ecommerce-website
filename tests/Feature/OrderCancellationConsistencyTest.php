@@ -13,7 +13,7 @@ function makeOrderForUser(User $user, string $status): Order
 {
     return Order::query()->create([
         'user_id' => $user->id,
-        'order_number' => 'ORD-TEST-' . strtoupper((string) str()->random(10)),
+        'order_number' => 'ORD-TEST-'.strtoupper((string) str()->random(10)),
         'status' => $status,
         'total_price' => 0,
         'shipping_cost' => 0,
@@ -47,7 +47,7 @@ test('customer can cancel own pending order and stock is restored', function () 
         ->actingAs($customer)
         ->patch(route('customer.orders.cancel', $order));
 
-    $response->assertRedirect(route('customer.orders.index'));
+    $response->assertRedirect(route('customer.orders.show', $order));
     $response->assertSessionHas('success');
 
     expect($order->fresh()->status)->toBe('cancelled');
